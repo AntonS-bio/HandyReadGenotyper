@@ -1,3 +1,16 @@
+# Test data and code
+InputData/
+Old_InputData/
+old_scripts/
+OutputData/
+single_amplicon/
+test_scripts/*
+all_amplicons/
+para*
+map_fastq.sh
+murium.tsv
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
