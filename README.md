@@ -8,10 +8,8 @@ This tool, HandyReadGenotyper, has two modes:
     1. Train a classification model using existing Nanopore data - this can be your own data, data from genomic repositories (ENA, NCBI, DDBJ) or a mix of these
     2. Classify ONT sequencing data using the model trained in (1)
 
-###Model training:
+### Model training:
 
-usage: train.py [-h] -t  -r  -p  [-n] -v  -o  [-m]
-train.py: error: the following arguments are required: -t/--target_regions, -r/--reference, -p/--positive_bams, -v/--vcf, -o/--output_dir
 usage: train.py [-h] -t  -r  -p  [-n] -v  -o  [-m]
 
 Classify reads in BAM file using existing model or train a model from bam files
@@ -29,8 +27,7 @@ options:
   -o , --output_dir     Directory for output files
   -m , --bams_matrix    Matrix with precalculated BAM matrices ()
 
-###Reads classification (must have a trained model)
-classify.py: error: the following arguments are required: -t/--target_regions, -r/--reference, -b/--bam_files, -m/--model, -o/--output_file
+### Reads classification (must have a trained model)
 usage: classify.py [-h] -t  -r  -b  [-d] -m  -o
 
 Classify reads in BAM file using existing model or train a model from bam files
