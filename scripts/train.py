@@ -1,9 +1,6 @@
 from os.path import expanduser
-from sys import path
 import argparse
 from typing import List
-import pandas as pd
-path.append( expanduser("~/HandyAmpliconTool/scripts/") )
 from inputs_validation import ValidateFiles
 from data_classes import Amplicon
 from model_manager import ModelManager
@@ -81,13 +78,11 @@ with open(bed_file) as input_file:
         target_regions.append(Amplicon.from_bed_line(line, fasta_file))
 
 
-if True: #Model training
-    model_manager=ModelManager(model_file)
-    model_manager.model_evaluation_file=model_quality_file
-    model_manager.load_genotype_snps(vcf_file)
-    if use_existing_bams_matrix:
-        model_manager.train_from_existing_matrices(target_regions=target_regions, matrices_file=matrix_file)
-    else:
-        model_manager.train_from_bams(target_regions, positive_bams, negative_bams, matrix_file)
+model_manager=ModelManager(model_file)
+model_manager.model_evaluation_file=model_quality_file
+model_manager.load_genotype_snps(vcf_file)
+if use_existing_bams_matrix:
+    model_manager.train_from_existing_matrices(target_regions=target_regions, matrices_file=matrix_file)
+else:
+    model_manager.train_from_bams(target_regions, positive_bams, negative_bams, matrix_file)
     
-

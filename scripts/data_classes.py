@@ -2,7 +2,6 @@ from typing import List, Tuple, Dict
 import pandas as pd
 import uuid
 from io import TextIOWrapper
-from Bio import SeqIO
 import copy
 from json import load
 from os.path import exists, expanduser
@@ -385,78 +384,6 @@ class Amplicon:
     def __hash__(self):
         return hash(self.id)
 
-class FlankingAmplicon(Amplicon):
-    """Class for defining amplicons flanking a parent amplicon
-    """
-
-    def __init__(self, name: str, seq: str, parent: Amplicon, is_left: bool, max_len: int) -> None:
-        super().__init__(name, seq)
-        self._parent=parent
-        if is_left:
-            self._parent.left_flanking_id=self.id
-        else:
-            self._parent.right_flanking_id=self.id
-
-        self._is_left=is_left
-        self._max_len=max_len
-    
-    @property
-    def parent(self) -> Amplicon:
-        return self._parent
-
-    @property
-    def max_len(self) -> int:
-        return self._max_len
-
-    @max_len.setter
-    def max_len(self, value: int):
-        self._max_len = int(value)
-
-    @property
-    def is_left(self) -> bool:
-        return self._is_left
-
-    @is_left.setter
-    def is_left(self, value: bool):
-        self._is_left = value
-
-    @classmethod
-    def from_parent_bed_line(cls,ref_fasta_file: str, is_left: bool, max_len:int, parent: Amplicon):
-        """Constructor basesd on parent sequence and maximum amplicon length. 
-        :param ref_fasta_file: Path to fasta file on which the amplicon is based
-        :type ref_fasta_file: str
-
-        :param is_left: Boolean indicating if flank is left or right of parent amplicon
-        :type is_left: str
-
-        :param max_len: Maximum length of parent and this flanking sequence
-        :type max_len: int        
-
-        :param parent: The parent (i.e. actual or central) amplicon to which this one will be flanking
-        :type parent: Amplicon
-        """
-        name = parent._name+"_left" if is_left else parent._name+"_right"
-        for record in SeqIO.parse(ref_fasta_file,"fasta"):
-            if record.id==parent.ref_seq.refseq_id:
-                new_amplicon=cls(name, "", parent, is_left, max_len )
-                ampl_start, ampl_end = new_amplicon._calculate_flanking_coordinates(record)
-        bed_line=parent.ref_seq.refseq_id+"\t"+str(ampl_start)+"\t"+str(ampl_end)
-        new_amplicon.ref_seq=ReferenceSequence.from_bed_line(bed_line, ref_fasta_file)
-                    # new_amplicon.seq=str(record.seq[ampl_start:ampl_end])
-                    # new_amplicon.refseq_id=record.id
-                    # new_amplicon.ref_start=ampl_start
-                    # new_amplicon.ref_end=ampl_end
-        return new_amplicon
-        #raise ValueError(f'Contig {parent.refseq_id} is not found in fasta file: {ref_fasta_file}')
-
-    def _calculate_flanking_coordinates(self, record: SeqIO.SeqRecord) -> Tuple[int,int]:
-        """Calculates the strat and end of the flanking amplicon sequences based on amplicon length
-        and maximum permitted lenght of the amplicon
-        """
-        if self.is_left:
-            return (max(self.parent.ref_seq.ref_start-self.max_len,0),self.parent.ref_seq.ref_start)
-        else:
-            return (self.parent.ref_seq.ref_end , min(self.parent.ref_seq.ref_end+self.max_len,len(record.seq)))
 
 class Genotype:
 
@@ -822,7 +749,7 @@ class Genotypes:
                 output_df.loc[index, gt.name]=snp.passes_filters
         return output_df
 
-class InputConfiguration:
+
 
     cpu_threads=1
     flank_len_to_check=-1 #this is intentional to avoid hiding this parameters,

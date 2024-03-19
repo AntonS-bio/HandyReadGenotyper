@@ -7,13 +7,13 @@ def readme():
         return f.read()
 
 
-__version__ = 'v0.1_beta.10'
+__version__ = 'v0.1_beta.1'
 
 setup(name='HandyReadGenotyper',
       version=__version__,
       description='HandyReadGenotyper',
       long_description=readme(),
-      python_requires='>=3.10.0',
+      python_requires='>=3.8,<3.9.0a0',
       classifiers=['Development Status :: Beta',
                    'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
                    'Programming Language :: Python :: 3',
@@ -25,6 +25,7 @@ setup(name='HandyReadGenotyper',
       author_email='',
       packages=['scripts'],
       scripts=[
-          'scripts/run.py'
+          'scripts/train.py',
+          'scripts/classify.py'
       ]
 )
