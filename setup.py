@@ -1,13 +1,27 @@
 #!/usr/bin/env python3
 from setuptools import setup
+from setuptools.command.install import install
+import os
+import sys
 
+__version__ = '0.1.4'
 
 def readme():
     with open('README.md') as f:
         return f.read()
 
+def check_dir_write_permission(directory):
+    if os.path.isdir(directory) and not os.access(directory, os.W_OK):
+        sys.exit('Error: no write permission for ' + directory + '  ' +
+                 'Perhaps you need to use sudo?')
 
-__version__ = '0.1_beta.3'
+class HandyReadGenotyperInstall(install):
+
+    def run(self):
+        check_dir_write_permission(self.install_lib)
+        install.run(self)
+
+
 
 setup(name='HandyReadGenotyper',
       version=__version__,
@@ -24,8 +38,17 @@ setup(name='HandyReadGenotyper',
       author='Anton Spadar',
       author_email='',
       packages=['scripts'],
+      include_package_data=True,
+      entry_points={'console_scripts': ['classify = classify:classify', 'train = train:train']},
       scripts=[
-          'scripts/train.py',
-          'scripts/classify.py'
-      ]
+          'scripts/classify.py',
+          'scripts/data_classes.py',
+          'scripts/genotyper_data_classes.py',
+          'scripts/input_processing.py',
+          'scripts/inputs_validation.py',
+          'scripts/model_manager.py',
+          'scripts/read_classifier.py',
+          'scripts/train.py'
+      ],
+      cmdclass={'install': HandyReadGenotyperInstall}
 )

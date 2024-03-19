@@ -302,14 +302,3 @@ class ModelManager:
                                 f'{Counter(prediction.predicted_classes)[1]} / {Counter(prediction.predicted_classes)[0]}{suffix}'
 
         results.to_csv(ouput_file, sep="\t")
-        #         results[amplicon.name]=[0,0]
-        #         if amplicon.name in models and amplicon.name in reads_data.read_matrices:
-        #             if reads_data.read_matrices[amplicon.name].shape[0]<5:
-        #                 #print(f'Fewer than 5 reads in amplicion {amplicon.name}, skipping')
-        #                 continue
-        #             if models[amplicon.name].not_trained:
-        #                 continue
-        #             predictions=models[amplicon.name].classify_new(reads_data.read_matrices[amplicon.name])
-        #             #print(f'Predicted counts for amplicon {amplicon.name} are: {Counter(predictions)[1]} positive and {Counter(predictions)[0]} negative')
-        #             results[amplicon.name]=[Counter(predictions)[1],Counter(predictions)[0]]
-        # return [bam_file, results]

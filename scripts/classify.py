@@ -1,5 +1,4 @@
-from os.path import expanduser, split, isdir, exists
-from os import listdir
+from os.path import expanduser
 from sys import path
 import argparse
 from typing import List
@@ -8,13 +7,7 @@ from inputs_validation import ValidateFiles
 from data_classes import Amplicon
 from input_processing import InputProcessing
 from model_manager import ModelManager
-import pysam as ps
 
-# bed_file=expanduser("~/HandyReadGenotyper/InputData/chr_primers_v4_merged.bed")
-# fasta_file=expanduser("~/HandyReadGenotyper/InputData/amr_chr_primer_v4_merged.fna")
-# read_meta_data=pd.read_csv(expanduser("~/HandyReadGenotyper/Old_InputData/fastqs/metadata.tsv"), sep="\t", index_col=4)
-# valid_files=read_meta_data.index[read_meta_data["PrimerSet"]=="Genotype"]
-# model="~/HandyReadGenotyper/OutputData/model_size_testing.pkl"
 
 parser = argparse.ArgumentParser(description='Classify reads in BAM file using existing model or train a model from bam files')
 parser.add_argument('-t','--target_regions', metavar='', type=str,
@@ -55,9 +48,6 @@ target_regions: List[Amplicon] = []
 with open(bed_file) as input_file:
     for line in input_file:
         target_regions.append(Amplicon.from_bed_line(line, fasta_file))
-
-#unclassified_bams_dir="~/AmpliconData/ic_data/"   
-#file_to_classify=[unclassified_bams_dir+"data_0"+str(f)+".bam" for f in range(269,285)]
 
 model_manager=ModelManager(model_file)
 model_manager.classify_new_data(target_regions, file_to_classify)

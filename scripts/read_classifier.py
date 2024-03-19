@@ -2,15 +2,15 @@ from collections import Counter
 from os.path import exists
 import warnings
 from typing import Dict, List
-from sklearn.naive_bayes import GaussianNB, CategoricalNB
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.mixture import GaussianMixture
-from sklearn.neighbors import KNeighborsClassifier
+# from sklearn.neighbors import KNeighborsClassifier
+# from sklearn.naive_bayes import GaussianNB, CategoricalNB
+# from sklearn.neural_network import MLPClassifier
+# from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix
-from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
-from sklearn.neural_network import MLPClassifier
 from sklearn.linear_model import SGDClassifier
 import numpy as np
 import pysam as ps

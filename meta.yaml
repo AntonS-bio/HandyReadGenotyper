@@ -29,7 +29,8 @@ requirements:
 
 test:
   commands:
-    - pip check
+    - classify -h
+    - train -h
   requires:
     - pip
 
