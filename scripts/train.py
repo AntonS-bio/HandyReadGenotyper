@@ -13,19 +13,19 @@ from input_processing import InputProcessing
 print("\n")
 
 parser = argparse.ArgumentParser(description='Classify reads in BAM file using existing model or train a model from bam files')
-parser.add_argument('-t','--target_regions', metavar='', type=str,
+parser.add_argument('-t','--target_regions',  type=str,
                     help='Bed file that specifies reference intervals to which reads where mapped', required=True)
-parser.add_argument('-r','--reference', metavar='', type=str,
+parser.add_argument('-r','--reference', type=str,
                     help='FASTA file with the reference to which reads where mapped', required=True)
-parser.add_argument('-p','--positive_bams', metavar='', type=str,
+parser.add_argument('-p','--positive_bams', type=str,
                     help='Directory with or list of NON-target BAM files and corresponding BAM index files (.bai)', required=True)
-parser.add_argument('-n','--negative_bams', metavar='', type=str,
+parser.add_argument('-n','--negative_bams', type=str,
                     help='Directory with or list of TARGET BAM files and corresponding BAM index files (.bai)', required=False)
-parser.add_argument('-v','--vcf', metavar='', type=str,
+parser.add_argument('-v','--vcf', type=str,
                     help='VCF file containing positions that will be excluded from training as well as genotype defining SNPs (also excluded)', required=True)
-parser.add_argument('-o','--output_dir', metavar='', type=str,
+parser.add_argument('-o','--output_dir', type=str,
                     help='Directory for output files', required=True)
-parser.add_argument('-m', '--bams_matrix', metavar='', type=str, default="",
+parser.add_argument('-m', '--bams_matrix',  type=str, default="",
                     help='Matrix with precalculated BAM matrices ()', required=False)
 
 try:

@@ -7,7 +7,7 @@ def readme():
         return f.read()
 
 
-__version__ = 'v0.1_beta.3'
+__version__ = '0.1_beta.3'
 
 setup(name='HandyReadGenotyper',
       version=__version__,
