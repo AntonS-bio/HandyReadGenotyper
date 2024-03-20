@@ -33,11 +33,15 @@ except:
 input_processing=InputProcessing()
 file_to_classify=input_processing.get_bam_files( args.bam_files )
 if len(file_to_classify)==0:
-    exit()
+    exit(0)
 
 bed_file, fasta_file, model_file = input_processing.get_ref_bed_model(args)
 if bed_file=="":
     exit(0)
+
+if not input_processing.check_address(args.output_file):
+    exit(0)
+output_file=args.output_file
 
 file_validator=ValidateFiles()
 file_validator.validate_bed(bed_file)
@@ -50,4 +54,4 @@ with open(bed_file) as input_file:
         target_regions.append(Amplicon.from_bed_line(line, fasta_file))
 
 model_manager=ModelManager(model_file)
-model_manager.classify_new_data(target_regions, file_to_classify)
+model_manager.classify_new_data(target_regions, file_to_classify, output_file)

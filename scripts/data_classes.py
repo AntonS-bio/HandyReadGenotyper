@@ -6,6 +6,7 @@ import copy
 from json import load
 from os.path import exists, expanduser
 from multiprocessing import cpu_count
+from Bio import SeqIO
 
 class SNP:
     def __init__(self, **kwargs) -> None:

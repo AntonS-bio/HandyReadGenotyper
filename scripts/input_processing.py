@@ -1,5 +1,5 @@
 from typing import List, Tuple
-from os.path import expanduser, isdir, exists
+from os.path import expanduser, isdir, exists, dirname
 from os import listdir, mkdir
 
 class InputProcessing:
@@ -43,7 +43,10 @@ class InputProcessing:
 
     def file_exists(self, file_name: str) -> bool:
         if not exists(file_name):
-            print(f'File {file_name} does not exist. Check the address spelling.')
+            if isdir(file_name):
+                print(f'Directory {file_name} does not exist. Check the address spelling.')
+            else:
+                print(f'File {file_name} does not exist. Check the address spelling.')
             return False
         else:
             return True
@@ -55,3 +58,7 @@ class InputProcessing:
             print(f'Directory {dir_name} already exists.')
             return False
         return True
+    
+    def check_address(self, address:str) -> bool:
+        directory=dirname(address)
+        return self.file_exists(directory)

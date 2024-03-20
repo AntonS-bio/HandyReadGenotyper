@@ -6,6 +6,7 @@ from os import listdir
 import warnings
 from tqdm import tqdm
 from typing import Set
+from Bio import SeqIO
 
 class ValidateFiles:
 
