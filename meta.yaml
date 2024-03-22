@@ -1,5 +1,5 @@
 {% set name = "HandyReadGenotyper" %}
-{% set version = "0.1.4" %}
+{% set version = "0.1.7" %}
 
 package:
   name: {{ name|lower }}
@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://github.com/AntonS-bio/HandyReadGenotyper/archive/{{ version }}.tar.gz
-  sha256: ac18754353641965e9b778801f3989625533a03d64c0acf04d1c79228f9fbeca
+  sha256: cbe72bf4d61ee210a6bab6cd8ba89625f5589da199ce66ec067af6372c431cba
 
 build:
   noarch: python
@@ -27,7 +27,7 @@ requirements:
     - pysam >=0.22.0
     - numpy >=1.20.*
     - tqdm >=4.66.*
-    - Bio >=1.81
+    - biopython >=1.78
 
 test:
   commands:
