@@ -39,7 +39,7 @@ setup(name='HandyReadGenotyper',
       author_email='',
       packages=['scripts'],
       include_package_data=True,
-      entry_points={'console_scripts': ['classify = classify:classify', 'train = train:train']},
+      entry_points={'console_scripts': ['classify = classify', 'train = train']},
       scripts=[
           'scripts/classify.py',
           'scripts/data_classes.py',
