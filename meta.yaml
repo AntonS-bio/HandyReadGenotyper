@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://github.com/AntonS-bio/HandyReadGenotyper/archive/{{ version }}.tar.gz
-  sha256: cbe72bf4d61ee210a6bab6cd8ba89625f5589da199ce66ec067af6372c431cba
+  sha256: e5c93b7804e9eb57f0d0d33ae875688d85ccb21571a78069ead7a2b464071500
 
 build:
   noarch: python
