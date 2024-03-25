@@ -9,7 +9,7 @@ This tool, HandyReadGenotyper, has two modes:
     2. Classify ONT sequencing data using the model trained in (1)
 
 ### Model training
-
+```
 usage: train.py -t  -r  -p  -v  -o  [-m] [-h] [-n] 
 
 Classify reads in BAM file using existing model or train a model from bam files
@@ -25,9 +25,10 @@ options:
                         Directory with or list of TARGET BAM files and corresponding BAM index files (.bai)
   -v , --vcf            VCF file containing positions that will be excluded from training as well as genotype defining SNPs (also excluded)
   -o , --output_dir     Directory for output files
-  -m , --bams_matrix    Matrix with precalculated BAM matrices ()
-
+  -m , --bams_matrix    Matrix with precalculated BAM matrices
+```
 ### Reads classification (must have a trained model)
+```
 usage: classify.py -t  -r  -b  -m  -o  [-d] [-h]
 
 Classify reads in BAM file using existing model or train a model from bam files
@@ -43,4 +44,4 @@ options:
   -m , --model          Pickle (.pkl) file containing pretrained model. Model must be trained on same reference
   -o , --output_file    File to store classification results
 
-
+```
