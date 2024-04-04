@@ -8,6 +8,19 @@ This tool, HandyReadGenotyper, has two modes:
     1. Train a classification model using existing Nanopore data - this can be your own data, data from genomic repositories (ENA, NCBI, DDBJ) or a mix of these
     2. Classify ONT sequencing data using the model trained in (1)
 
+## Setup
+The easiest way to setup the tool is to use conda or mamba. If you are using macOS or Linux, you can install via command line. If you are using Windows 10+, the best option is to setup Windows Subsystem Linux (WSL) first which will give you access to Linux functionality from you Windows system. After that, you can use conda or mamba.
+
+The best practice is to install packages in dedicated environment to avoid software conflicts. To create new environment and install HandyReadGenotyper into it use:
+```
+conda create --name  hrgENV -c bioconda -c conda-forge handyreadgenotyper
+```
+where "hrgENV" can be replaced with whatever you want to call the environment. Once installed, use
+```
+conda activate hrgENV
+```
+to activate the environment. Now you are ready to use the HandyReadGenotyper.
+
 ### Model training
 ```
 usage: train.py -t  -r  -p  -v  -o  [-m] [-h] [-n] 
