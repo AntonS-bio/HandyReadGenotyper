@@ -29,9 +29,9 @@ but this is not recommended.
 
 ### Model training
 ```
-usage: train.py -t  -r  -p  -v  -o  [-m] [-h] [-n] 
+usage: train -t  -r  -p  -v  -o  [-m] [-h] [-n] 
 
-Classify reads in BAM file using existing model or train a model from bam files
+Classify reads in BAM file using existing model or train a model from bam files. You will get an error if you use "train.py" instead of "train"
 
 options:
   -h, --help            show this help message and exit
@@ -48,9 +48,9 @@ options:
 ```
 ### Reads classification (must have a trained model)
 ```
-usage: classify.py -t  -r  -b  -m  -o  [-d] [-h]
+usage: classify -t  -r  -b  -m  -o  [-d] [-h]
 
-Classify reads in BAM file using existing model or train a model from bam files
+Classify reads in BAM file using existing model or train a model from bam files. You will get an error if you use "classify.py" instead of "classify"
 
 options:
   -h, --help            show this help message and exit
