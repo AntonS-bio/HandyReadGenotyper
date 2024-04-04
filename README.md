@@ -15,11 +15,11 @@ The best practice is to install packages in dedicated environment to avoid softw
 ```
 conda create --name  hrgENV -c bioconda -c conda-forge handyreadgenotyper
 ```
-where "hrgENV" can be replaced with whatever you want to call the environment. Once installed, use
+Once installed, use
 ```
 conda activate hrgENV
 ```
-to activate the environment. Now you are ready to use the HandyReadGenotyper.
+to activate the environment. Now you are ready to use the HandyReadGenotyper. You would need to run activation command (but not create command) every time you start a new terminal. In both commands above "hrgENV" can be replaced with whatever you want to call the environment. 
 
 You can also install the tool without creating new environment
 ```
