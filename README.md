@@ -21,6 +21,12 @@ conda activate hrgENV
 ```
 to activate the environment. Now you are ready to use the HandyReadGenotyper.
 
+You can also install the tool without creating new environment
+```
+conda install -c bioconda -c conda-forge handyreadgenotyper
+```
+but this is not recommended.
+
 ### Model training
 ```
 usage: train.py -t  -r  -p  -v  -o  [-m] [-h] [-n] 
