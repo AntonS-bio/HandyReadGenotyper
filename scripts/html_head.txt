@@ -1,0 +1,29 @@
+<head>
+    <style type="text/css">
+    .table_header {
+        font-weight: bold;
+    }
+    .header_line {
+        font-weight: bold;
+		font-size: 18px;
+    }
+	table, th, td {
+		border: 1px solid black;
+	}
+		
+	td {
+	  width:150px;
+	  text-align: center;
+	  word-wrap: break-word;
+	}
+	.td_alt {
+	  width:150px;
+	  text-align: left;
+	  word-wrap: break-word;
+	}	
+	.alt_row{
+		background-color:#b0e0e6;
+	}
+
+    </style>
+</head>

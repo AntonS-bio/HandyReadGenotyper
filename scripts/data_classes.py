@@ -187,7 +187,6 @@ class Sample:
     def id(self) -> str:
         return self._uuid
 
-
 class ReferenceSequence:
     def __init__(self, contig_id, seq_start, seq_end, sequence) -> None:
         self._refseq_id=contig_id
@@ -233,7 +232,6 @@ class ReferenceSequence:
     def sequence(self) -> str:
         return self._sequence
 
-
 class Amplicon:
     def __init__(self, name: str, seq: str) -> None:
         self._name: str=name
@@ -256,9 +254,8 @@ class Amplicon:
 
         """
         bed_line_values = bed_line.strip().split("\t")
-        ampl_chr, ampl_start, ampl_end=bed_line_values[0:3]
         if len(bed_line_values)>=4:
-            name='_'.join( [str(f) for f in bed_line_values[0:4] ] )
+            name=bed_line_values[3]
         else:
             name='_'.join( [str(f) for f in bed_line_values[0:3] ] )
 
@@ -384,7 +381,6 @@ class Amplicon:
 
     def __hash__(self):
         return hash(self.id)
-
 
 class Genotype:
 
@@ -878,3 +874,4 @@ class Genotypes:
     @property
     def snps_vcf(self) -> str:
         return self.output_dir+self._config_data["output_files"]["snps_vcf"]
+

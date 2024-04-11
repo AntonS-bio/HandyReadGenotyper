@@ -1,15 +1,15 @@
 from collections import Counter
 from os.path import exists, basename, dirname, isdir
-from pathlib import Path
 import warnings
 from multiprocessing import Pool
 from typing import Dict, List, Set, Tuple
 import pickle
 from tqdm import tqdm
 import numpy as np
-import pandas as pd
 from read_classifier import ReadsMatrix, Classifier, ClassificationResult, number_dic, GenotypeSNP
 from data_classes import Amplicon
+from datetime import datetime
+import hashlib
 
 class ModelManager:
     """Set of function to train a model from either BAM files or, in case
@@ -19,7 +19,8 @@ class ModelManager:
     :param models_file: file in/from which to save/load models
     :type models_file: List[Amplicon]     
     """
-    def __init__(self, models_file: str) -> None:
+    def __init__(self, models_file: str, cpus: int) -> None:
+        self.cpus_to_use=cpus
         self._model_output_file=models_file
         self._matrices_file=""
         self._target_regions: List[Amplicon]=[]
@@ -111,6 +112,17 @@ class ModelManager:
         """
         return self._trained_models
     
+    @property
+    def models_fingerprint(self) -> str:
+        """Hash of the uuids of all models in this ModelManager object
+        """
+        hash256=hashlib.sha256()
+        sorted_uuids=sorted([f.uuid for f in  self._trained_models ])
+        uuids_concatenated="".join( [f for f in sorted_uuids] )
+        hash256.update(uuids_concatenated.encode())
+        return f'{hash256.hexdigest()[0:3]}-{hash256.hexdigest()[3:6]}-{hash256.hexdigest()[6:9]}-{hash256.hexdigest()[9:12]}' #This works because there are few models
+        #and they don't need to be cryptographically secure.
+       
     @trained_models.setter
     def trained_models(self, value: Dict[str, Classifier]):
         """Dictionary of trained models. Key is amplicon name.
@@ -189,7 +201,10 @@ class ModelManager:
         with open(self.model_evaluation_file,"w") as temp:
             for name, model in self.trained_models.items():
                 temp.write(name+"\t"+str(model.sensitivity)+"\t"+str(model.specificity)+"\n")
-                temp.write(",".join([ key+": "+str(count) for key, count in model.misclassified_inputs.items()]) )
+                if model.not_trained:
+                    temp.write(f'{name}\tNot Trained\tNot Trained' )
+                else:
+                    temp.write(",".join([ key+": "+str(count) for key, count in model.misclassified_inputs.items()]) )
                 temp.write("\n")
 
         with open(self._model_output_file, "wb") as model_file:
@@ -244,32 +259,35 @@ class ModelManager:
         """
 
         if __name__ == 'model_manager':
-            with Pool(8) as p:
+            with Pool(self.cpus_to_use) as p:
                 msa_results = list(tqdm( p.imap(func=self._process_bams, iterable=bam_files), total=len(bam_files) ))
                 bam_matrices:Dict[str, Dict[str,np.array]]=dict( (basename(f.bam_file), f.read_matrices) for f in msa_results  )
                 return bam_matrices
 
-    def _classify_new_data_helper(self, input_data: Tuple[np.array, Amplicon]) -> ClassificationResult:
+    def _classify_new_data_helper(self, input_data: Tuple[np.array, Amplicon, str]) -> ClassificationResult:
         '''Function called by multithreading pool to allow faster processing
         of data. The multithreading has to be based on simultaneous processing
         of amplicons, not BAMs due large size of the data inputs which prevents
         spawning classifiers for each BAM
 
-        :param target_region: Amplicon for 
+        :param input_data: Tuple containing reads matrix, target amplicon and name of sample
+        :type: Tuple[np.array, Amplicon, str]
         '''
-        reads: np.array=input_data[0]
-        amplicon=input_data[1]
+        reads, amplicon, sample = input_data
+        #amplicon=input_data[1]
         if amplicon.name not in self.trained_models:
             raise ValueError(f'No models available for amplicon {amplicon.name}')
         relevant_model = self.trained_models[amplicon.name]
-        classification: ClassificationResult=ClassificationResult(amplicon)
+        classification: ClassificationResult=ClassificationResult(amplicon, sample)
         classification.predicted_classes=relevant_model.classify_new(reads)
+        classification.model_fingerprint=relevant_model.uuid()
+        classification.model_timestamp=relevant_model.training_timestamp()
         if Counter(classification.predicted_classes)[1]>5:
             classification.get_consensus(reads[classification.predicted_classes==1])
             print(classification.result_description(relevant_model.genotype_snps))
         return classification
 
-    def classify_new_data(self, target_regions: List[Amplicon], bam_files: List[str], ouput_file:str) -> None:
+    def classify_new_data(self, target_regions: List[Amplicon], bam_files: List[str]) -> None:
         """Creates nucleotides matrix from existing nucleotide matrices
         and trains model to differentiate reads from positive and negative matrices
 
@@ -284,21 +302,17 @@ class ModelManager:
             self.trained_models=pickle.load(model_file)
 
         print("Processing data")
-        results=pd.DataFrame(index=[f.name for f in target_regions], columns=[Path(f).stem for f in bam_files]).fillna("0/0")
+        results: List[ClassificationResult] = []
         if __name__ == 'model_manager':
-            with Pool(8) as p:
+            with Pool(self.cpus_to_use) as p:
                 with tqdm(total=len(bam_files)) as progress_meter:
                     for bam_file in bam_files:
                         print("Loading file: "+bam_file)
                         reads_data: ReadsMatrix=self._process_bams(bam_file)
                         print("Classifying data: "+bam_file)
-                        function_input=[(reads_data.read_matrices[amplicon.name], amplicon) for amplicon in target_regions]
+                        function_input=[(reads_data.read_matrices[amplicon.name], amplicon, bam_file) for amplicon in target_regions]
                         predictions: List[ClassificationResult]=p.map(self._classify_new_data_helper, function_input)
                         del reads_data
                         progress_meter.update(1)
-                        for prediction in predictions:
-                            suffix="/NT" if self.trained_models[prediction.amplicon.name].not_trained else ""
-                            results.loc[ prediction.amplicon.name  ,Path(bam_file).stem] = \
-                                f'{Counter(prediction.predicted_classes)[1]} / {Counter(prediction.predicted_classes)[0]}{suffix}'
-
-        results.to_csv(ouput_file, sep="\t")
+                        results+=predictions
+        return results

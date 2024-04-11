@@ -9,7 +9,7 @@ all_amplicons/
 para*
 map_fastq.sh
 murium.tsv
-
+DELETE*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

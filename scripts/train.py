@@ -6,7 +6,6 @@ from data_classes import Amplicon
 from model_manager import ModelManager
 from input_processing import InputProcessing
 
-
 def main():
 
     parser = argparse.ArgumentParser(description='Classify reads in BAM file using existing model or train a model from bam files')
@@ -22,6 +21,8 @@ def main():
                         help='VCF file containing positions that will be excluded from training as well as genotype defining SNPs (also excluded)', required=True)
     parser.add_argument('-o','--output_dir', type=str,
                         help='Directory for output files', required=True)
+    parser.add_argument('--cpus', type=int,
+                        help='Directory for output files', required=False, default=1)
     parser.add_argument('-m', '--bams_matrix',  type=str, default="",
                         help='Matrix with precalculated BAM matrices ()', required=False)
 
@@ -30,6 +31,8 @@ def main():
     except:
         parser.print_help()
         exit(0)
+
+    cpu_to_use=int(args.cpus)
 
     input_processing=InputProcessing()
     positive_bams=input_processing.get_bam_files( args.positive_bams )
@@ -75,7 +78,7 @@ def main():
             target_regions.append(Amplicon.from_bed_line(line, fasta_file))
 
 
-    model_manager=ModelManager(model_file)
+    model_manager=ModelManager(model_file, cpu_to_use)
     model_manager.model_evaluation_file=model_quality_file
     model_manager.load_genotype_snps(vcf_file)
     if use_existing_bams_matrix:
@@ -83,7 +86,7 @@ def main():
     else:
         model_manager.train_from_bams(target_regions, positive_bams, negative_bams, matrix_file)
         
-
+    
 
 if __name__=="__main__":
     main()

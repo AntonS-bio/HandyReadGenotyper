@@ -1,21 +1,17 @@
 from collections import Counter
 from os.path import exists
 import warnings
-from typing import Dict, List
-from sklearn.ensemble import RandomForestClassifier, VotingClassifier
-from sklearn.tree import DecisionTreeClassifier
+from typing import Dict, List, Tuple
+from sklearn.ensemble import VotingClassifier
 from sklearn.mixture import GaussianMixture
-# from sklearn.neighbors import KNeighborsClassifier
-# from sklearn.naive_bayes import GaussianNB, CategoricalNB
-# from sklearn.neural_network import MLPClassifier
-# from sklearn.svm import SVC
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import SGDClassifier
 import numpy as np
 import pysam as ps
 from data_classes import Amplicon
-
+import uuid
+from datetime import datetime
 
 
 
@@ -34,11 +30,12 @@ class GenotypeSNP:
     :param reference_nucl: Reference nucleotide value
     :type reference_nucl: str    
     """
-    def __init__(self, contig_id: str, position: int, reference_nucl: str) -> None:
+    def __init__(self, contig_id: str, position: int, reference_nucl: str, is_amr:bool=False) -> None:
         self._genotypes={} #key = allele: str, value = genotype :str
         self._contig_id = contig_id
         self._ref_nucl = reference_nucl
         self._position = int(position)
+        self._is_amr=is_amr
 
     @property
     def contig_id(self) -> str:
@@ -47,6 +44,14 @@ class GenotypeSNP:
     @property
     def position(self) -> int:
         return self._position
+
+    @property
+    def is_amr(self) -> bool:
+        return self._is_amr
+
+    @is_amr.setter
+    def is_amr(self, value: bool):
+        self._is_amr=value
 
     @property
     def genotypes(self):
@@ -95,12 +100,12 @@ class GenotypeSNP:
             self.add_genotype( vcf_values[4] )
         else:
             gt_values=vcf_values[2].split(":")
+            if gt_values[1]=="AMR":
+                self.is_amr=True
             self.add_genotype(vcf_values[4], gt_values[0])
 
     def coordinates_match(self, contig: str, position: int) -> bool:
         return contig==self.contig_id and int(position)==self.position
-
-#class Report
 
 class ReadsMatrix:
     def __init__(self, bam_file: str, is_positive: bool) -> None:
@@ -129,8 +134,7 @@ class ReadsMatrix:
         else:
             ValueError(f'Amplicon {amplicon_name} not found in file: {self._bam_file}')
 
-    def read_bam(self, target_regions: List[Amplicon], **kwargs) -> None:
-        full_length_only = kwargs.get('full_length_only', True)
+    def read_bam(self, target_regions: List[Amplicon], full_length_only: bool = True) -> None:
         self._read_matrices:  Dict[str, np.array]={}
         bam = ps.AlignmentFile(self.bam_file, "rb",check_sq=False)
         for target_amplicon in target_regions:#amplicon_coordinates.index:
@@ -141,10 +145,10 @@ class ReadsMatrix:
             orientation=[]
             for i,read in enumerate(bam.fetch(contig=target_contig, start=target_start, end=target_end)):
                 if not read.is_unmapped:
-                    if read.query_sequence==None:
+                    if read.query_sequence is None:
                         warnings.warn(f'Bam file {self.bam_file} has an empty read aligning to {target_amplicon.name} this should not happen')
                         continue
-                    if full_length_only and (read.reference_start>target_start or read.reference_end<target_end):
+                    if full_length_only and (read.query_alignment_start>target_start+5 or read.query_alignment_end<target_end-5): #allow 5nt length difference on each side
                         continue #This will skip non-full length queries
                     orientation.append(read.is_forward)
                     query_nt = [ read_ref_pair[0] for read_ref_pair in read.get_aligned_pairs() if not read_ref_pair[1] is None and
@@ -168,34 +172,58 @@ class ClassificationResult:
     :param name: Name for the model, amplicon name is the most useful
     :type name: str
     """
-    def __init__(self, amplicon: Amplicon) -> None:
+    def __init__(self, amplicon: Amplicon, sample: str) -> None:
         self._amplicon: Amplicon=amplicon
         self._consensus=""
         self._mismatches={}
         self._predicted_classes=None
-        self._mismatches=[]
-        self._genotype_snps=[]
+        self._sample=sample
+        self._model_fingerprint=""
+        self._model_timestamp=""
 
     def get_consensus(self, data: np.array) -> str:
         most_common=np.apply_along_axis( lambda x: Counter(x).most_common(1)[0][0], axis=0,  arr=data  )
         self.consensus="".join([number_dic[f] for f in most_common  ])
         return self.consensus
 
-    def calculate_genotype(self, genot_snps:List[GenotypeSNP]) -> str:
+    def calculate_genotype(self, genot_snps:List[GenotypeSNP]) -> Tuple[str, bool]: #Genotype name and boolean for AMR (True/False)
         result=""
+        snp_is_amr=False
         for pos, alt in self._mismatches.items():
             known_alleles=[f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
             if len(known_alleles)>0 :
+                snp_is_amr = known_alleles[0].is_amr
                 if alt in known_alleles[0].genotypes:
                     result=result + known_alleles[0].genotypes[alt]
                 else:
-                    result=result + f'Unknown GT at known position: {pos}'
-        return result
+                    result=result + f'Unknown allele at known position: {pos}'
+        return (result, snp_is_amr)
                
     #region
     @property
     def predicted_classes(self) -> np.array:
         return self._predicted_classes
+    
+    @property
+    def model_fingerprint(self) -> str:
+        return self._model_fingerprint
+
+    @model_fingerprint.setter
+    def model_fingerprint(self, value: str):
+        self._model_fingerprint=str(value)
+
+    @property
+    def model_timestamp(self) -> datetime:
+        return self._model_timestamp
+
+    @model_timestamp.setter
+    def model_timestamp(self, value: datetime):
+        self._model_timestamp=value
+
+
+    @property
+    def sample(self) -> str:
+        return self._sample
 
     @predicted_classes.setter
     def predicted_classes(self, value: np.array):
@@ -203,11 +231,11 @@ class ClassificationResult:
 
     @property
     def positive_cases(self) -> int:
-        return Counter(self._predicted_classes)[0]
+        return Counter(self._predicted_classes)[1]
 
     @property
     def negative_cases(self) -> int:
-        return Counter(self._predicted_classes)[1]
+        return Counter(self._predicted_classes)[0]
 
     @property
     def amplicon(self) -> Amplicon:
@@ -246,7 +274,11 @@ class ClassificationResult:
             if genotype_snps is None:
                 genotypes="No genotype SNPs provided"
             else:
-                genotypes="SNPs from genotypes: "+self.calculate_genotype(genot_snps=genotype_snps)
+                gts=self.calculate_genotype(genot_snps=genotype_snps)
+                if gts[1]:
+                    genotypes="SNPs from AMR genotypes: "+self.calculate_genotype(genot_snps=genotype_snps)[0]
+                else:
+                    genotypes="SNPs from genotypes: "+self.calculate_genotype(genot_snps=genotype_snps)[0]
             snps=",".join([f'{str(pos+1)}:{self.amplicon.seq[pos]}->{alt}' for pos, alt in self._mismatches.items()])
             return f'{self.amplicon.name}: {prefix} Total SNPs: {self.num_mismatches}, {genotypes}, Mismatched alleles: {snps}'
     
@@ -274,6 +306,14 @@ class Classifier:
         self._not_trained=False
         self._model=None
         self._variable_columns:List[int]=[]
+        self._uuid=str(uuid.uuid4())
+        self._training_timestamp=datetime.now()
+
+    def uuid(self) -> str:
+        return self._uuid
+    
+    def training_timestamp(self) -> datetime:
+        return self._training_timestamp
 
     def _nucleotide_to_binary_matrix(self, matrix: np.array) -> np.array:
         """Convert a matrix where nucleotides are represented by A:1,C:2,G:3,T:4,N:5,-:0
@@ -375,7 +415,9 @@ class Classifier:
         self._variable_columns=variable_columns
         used_columns=np.setdiff1d(range(0, positive_data.shape[1]), self._variable_columns)
 
-        if positive_data.shape[0]<100 or negative_data.shape[0]<100: #the train test set is too small. Model won't be trained and will rely on sequence similarity instead
+        if positive_data.shape[0]<2:
+            raise ValueError(f'{self.name} has fewer than two positive reads. Model training not possible. It might be best to instead include it as "presence_only, option -p" target for "classify" function.')
+        elif positive_data.shape[0]<100 or negative_data.shape[0]<100: #the train test set is too small. Model won't be trained and will rely on sequence similarity instead
             self._train_without_negative(positive_data)
             self.not_trained=True
             self.sensitivity=1
@@ -405,7 +447,6 @@ class Classifier:
             self.testing_samples_misclassfied=len(Counter([f.replace(".bam","") for f in np.asarray(self.test_samples_ids)[failed_predictions] if f!="Positive"]))
             self.testing_samplestotal_negative_samples=len(Counter(self.test_samples_ids))
             del train_data, train_true,  test_data, test_true
-
 
     def _train_without_negative(self, data) -> None:
         '''In some cases, there are no whole lenght reads from
