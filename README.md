@@ -8,11 +8,30 @@ This tool, HandyReadGenotyper, has two modes:
     1. Train a classification model using existing Nanopore data - this can be your own data, data from genomic repositories (ENA, NCBI, DDBJ) or a mix of these
     2. Classify ONT sequencing data using the model trained in (1)
 
+## Setup
+The easiest way to setup the tool is to use conda or mamba. If you are using macOS or Linux, you can install via command line. If you are using Windows 10+, the best option is to setup Windows Subsystem Linux (WSL) first which will give you access to Linux functionality from you Windows system. After that, you can use conda or mamba.
+
+The best practice is to install packages in dedicated environment to avoid software conflicts. To create new environment and install HandyReadGenotyper into it use:
+```
+conda create --name  hrgENV -c bioconda -c conda-forge handyreadgenotyper
+```
+Once installed, use
+```
+conda activate hrgENV
+```
+to activate the environment. Now you are ready to use the HandyReadGenotyper. You would need to run activation command (but not create command) every time you start a new terminal. In both commands above "hrgENV" can be replaced with whatever you want to call the environment. 
+
+You can also install the tool without creating new environment
+```
+conda install -c bioconda -c conda-forge handyreadgenotyper
+```
+but this is not recommended.
+
 ### Model training
+```
+usage: train -t  -r  -p  -v  -o  [-m] [-h] [-n] 
 
-usage: train.py -t  -r  -p  -v  -o  [-m] [-h] [-n] 
-
-Classify reads in BAM file using existing model or train a model from bam files
+Classify reads in BAM file using existing model or train a model from bam files. You will get an error if you use "train.py" instead of "train"
 
 options:
   -h, --help            show this help message and exit
@@ -25,12 +44,13 @@ options:
                         Directory with or list of TARGET BAM files and corresponding BAM index files (.bai)
   -v , --vcf            VCF file containing positions that will be excluded from training as well as genotype defining SNPs (also excluded)
   -o , --output_dir     Directory for output files
-  -m , --bams_matrix    Matrix with precalculated BAM matrices ()
-
+  -m , --bams_matrix    Matrix with precalculated BAM matrices
+```
 ### Reads classification (must have a trained model)
-usage: classify.py -t  -r  -b  -m  -o  [-d] [-h]
+```
+usage: classify -t  -r  -b  -m  -o  [-d] [-h]
 
-Classify reads in BAM file using existing model or train a model from bam files
+Classify reads in BAM file using existing model or train a model from bam files. You will get an error if you use "classify.py" instead of "classify"
 
 options:
   -h, --help            show this help message and exit
@@ -43,4 +63,4 @@ options:
   -m , --model          Pickle (.pkl) file containing pretrained model. Model must be trained on same reference
   -o , --output_file    File to store classification results
 
-
+```
