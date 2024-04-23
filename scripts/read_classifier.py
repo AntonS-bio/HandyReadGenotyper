@@ -193,11 +193,21 @@ class ClassificationResult:
             known_alleles=[f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
             if len(known_alleles)>0 :
                 snp_is_amr = known_alleles[0].is_amr
+                
                 if alt in known_alleles[0].genotypes:
-                    result=result + known_alleles[0].genotypes[alt]
+                    addition =  known_alleles[0].genotypes[alt]
                 else:
-                    result=result + f'Unknown allele at known position: {pos}'
+                    addition = f'Unknown allele at known position: {pos}'
+                result=result + ", " if result!="" else "" + addition
         return (result, snp_is_amr)
+    
+    def num_unknown_snps(self, genot_snps:List[GenotypeSNP]) -> int:
+        result=0
+        for pos, alt in self._mismatches.items():
+            known_alleles=[f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
+            if len(known_alleles)==0 :
+                result+=1
+        return result
                
     #region
     @property
@@ -325,7 +335,6 @@ class Classifier:
         :return binary matrix of nucleotides
         :rtype: np.array
         """
-        #return  matrix
         ouput=np.zeros( (matrix.shape[0], matrix.shape[1]*len(base_dic)), dtype=int )
         for i, key in enumerate(number_dic.keys()):
             ouput[:, (0+i)*matrix.shape[1]: (1+i)*matrix.shape[1] ]=matrix==key
@@ -398,6 +407,23 @@ class Classifier:
         self.test_samples_ids=self.test_samples_ids+[f[0] for f in negative_bams[negative_test_samples] ] #for debugging
        
         return reads_train, true_class_train,  reads_test, true_class_test
+
+
+    def test_function(self, positive_matrix, negative_matrix, positive_n_train, negative_n_train, positive_n_test, negative_n_test, negative_bams):
+        positive_train, positive_test, positive_test_samples = self._generate_train_test_sets(positive_matrix,positive_n_train, positive_n_test)
+        negative_train, negative_test, negative_test_samples = self._generate_train_test_sets(negative_matrix,negative_n_train, negative_n_test)
+        #test is the quality of differentiation between reads based on the typhi specific alleles
+
+        reads_train = np.vstack( ( positive_train , negative_train ) )
+        reads_test = np.vstack( ( positive_test , negative_test ) )
+        true_class_train=[1]*positive_train.shape[0] +[0]*negative_train.shape[0]
+        true_class_test=[1]*positive_test.shape[0] +[0]*negative_test.shape[0]
+
+        self.test_samples_ids=["Positive"] * positive_n_test
+        self.test_samples_ids=self.test_samples_ids+[f[0] for f in negative_bams[negative_test_samples] ] #for debugging
+       
+        return reads_train, true_class_train,  reads_test, true_class_test
+
 
     def train_classifier(self, positive_data, negative_data, variable_columns, negative_data_bams) -> None:
         """Splits a reads matrix into train and test sets of required sizes
@@ -505,11 +531,11 @@ class Classifier:
             return np.asarray([])
 
         if self.not_trained:
-            #prediction based on reads being within 50% CI of
+            #prediction based on reads being within 10% CI of
             #positive cases
             distances=self._get_distances(data)
-            upper_limit=self._model.means_[0][0]+0.68*self._model.covariances_[0][0][0] / self._model.n_features_in_ **(1/2)
-            lower_limit=self._model.means_[0][0]-0.68*self._model.covariances_[0][0][0] / self._model.n_features_in_ **(1/2)
+            upper_limit=self._model.means_[0][0]+0.13*self._model.covariances_[0][0][0] / self._model.n_features_in_ **(1/2)
+            lower_limit=self._model.means_[0][0]-0.13*self._model.covariances_[0][0][0] / self._model.n_features_in_ **(1/2)
             predictions=np.asarray([1 if f<=upper_limit and f>=lower_limit else 0 for f in distances ])
         else:
             predictions=self._model.predict(data)

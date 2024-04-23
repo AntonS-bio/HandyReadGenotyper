@@ -1,4 +1,8 @@
 <head>
+    <style>
+      html * {
+        font-family: sans-serif;
+      }
     <style type="text/css">
     .table_header {
         font-weight: bold;
@@ -12,12 +16,12 @@
 	}
 		
 	td {
-	  width:150px;
+	  max-width:250px;
 	  text-align: center;
 	  word-wrap: break-word;
 	}
 	.td_alt {
-	  width:150px;
+	  max-width:250px;
 	  text-align: left;
 	  word-wrap: break-word;
 	}	

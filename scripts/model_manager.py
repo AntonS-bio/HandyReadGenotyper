@@ -259,12 +259,14 @@ class ModelManager:
         """
 
         if __name__ == 'model_manager':
+            print(self.cpus_to_use)
             with Pool(self.cpus_to_use) as p:
                 msa_results = list(tqdm( p.imap(func=self._process_bams, iterable=bam_files), total=len(bam_files) ))
                 bam_matrices:Dict[str, Dict[str,np.array]]=dict( (basename(f.bam_file), f.read_matrices) for f in msa_results  )
                 return bam_matrices
+            
 
-    def _classify_new_data_helper(self, input_data: Tuple[np.array, Amplicon, str]) -> ClassificationResult:
+    def _classify_new_data_helper(self, bam_file:str) -> ClassificationResult:
         '''Function called by multithreading pool to allow faster processing
         of data. The multithreading has to be based on simultaneous processing
         of amplicons, not BAMs due large size of the data inputs which prevents
@@ -273,19 +275,33 @@ class ModelManager:
         :param input_data: Tuple containing reads matrix, target amplicon and name of sample
         :type: Tuple[np.array, Amplicon, str]
         '''
-        reads, amplicon, sample = input_data
-        #amplicon=input_data[1]
-        if amplicon.name not in self.trained_models:
-            raise ValueError(f'No models available for amplicon {amplicon.name}')
-        relevant_model = self.trained_models[amplicon.name]
-        classification: ClassificationResult=ClassificationResult(amplicon, sample)
-        classification.predicted_classes=relevant_model.classify_new(reads)
-        classification.model_fingerprint=relevant_model.uuid()
-        classification.model_timestamp=relevant_model.training_timestamp()
-        if Counter(classification.predicted_classes)[1]>5:
-            classification.get_consensus(reads[classification.predicted_classes==1])
-            print(classification.result_description(relevant_model.genotype_snps))
-        return classification
+
+        with open(self._model_output_file, "rb") as model_file:
+            self.trained_models=pickle.load(model_file)
+
+        print("Loading file: "+bam_file)
+        reads_data: ReadsMatrix=self._process_bams(bam_file)
+        print("Classifying data: "+bam_file)
+
+        results: List[ClassificationResult] = []
+        for amplicon in self._target_regions:
+            reads=reads_data.read_matrices[amplicon.name] 
+
+            if amplicon.name not in self.trained_models:
+                raise ValueError(f'No models available for amplicon {amplicon.name}')
+            
+            relevant_model = self.trained_models[amplicon.name]
+            classification: ClassificationResult=ClassificationResult(amplicon, bam_file)
+            classification.predicted_classes=relevant_model.classify_new(reads)
+            classification.model_fingerprint=relevant_model.uuid()
+            classification.model_timestamp=relevant_model.training_timestamp()
+
+            if Counter(classification.predicted_classes)[1]>5:
+                classification.get_consensus(reads[classification.predicted_classes==1])
+                print(classification.result_description(relevant_model.genotype_snps))
+            results.append(classification)
+        del reads_data
+        return results
 
     def classify_new_data(self, target_regions: List[Amplicon], bam_files: List[str]) -> None:
         """Creates nucleotides matrix from existing nucleotide matrices
@@ -296,23 +312,67 @@ class ModelManager:
         :param bam_file: BAM file with reads to classify
         :type bam_file: str
         """
-        self._target_regions=target_regions
-        print("Reading models")
-        with open(self._model_output_file, "rb") as model_file:
-            self.trained_models=pickle.load(model_file)
 
+        self._target_regions=target_regions
         print("Processing data")
         results: List[ClassificationResult] = []
         if __name__ == 'model_manager':
             with Pool(self.cpus_to_use) as p:
                 with tqdm(total=len(bam_files)) as progress_meter:
-                    for bam_file in bam_files:
-                        print("Loading file: "+bam_file)
-                        reads_data: ReadsMatrix=self._process_bams(bam_file)
-                        print("Classifying data: "+bam_file)
-                        function_input=[(reads_data.read_matrices[amplicon.name], amplicon, bam_file) for amplicon in target_regions]
-                        predictions: List[ClassificationResult]=p.map(self._classify_new_data_helper, function_input)
-                        del reads_data
+                        predictions: List[ClassificationResult]=p.map(self._classify_new_data_helper, bam_files)
                         progress_meter.update(1)
-                        results+=predictions
+                        results = [k for f in predictions for k in f]
         return results
+
+    # def _classify_new_data_helper(self, input_data: Tuple[np.array, Amplicon, str]) -> ClassificationResult:
+    #     '''Function called by multithreading pool to allow faster processing
+    #     of data. The multithreading has to be based on simultaneous processing
+    #     of amplicons, not BAMs due large size of the data inputs which prevents
+    #     spawning classifiers for each BAM
+
+    #     :param input_data: Tuple containing reads matrix, target amplicon and name of sample
+    #     :type: Tuple[np.array, Amplicon, str]
+    #     '''
+    #     reads, amplicon, sample = input_data
+    #     #amplicon=input_data[1]
+    #     if amplicon.name not in self.trained_models:
+    #         raise ValueError(f'No models available for amplicon {amplicon.name}')
+    #     relevant_model = self.trained_models[amplicon.name]
+    #     classification: ClassificationResult=ClassificationResult(amplicon, sample)
+    #     classification.predicted_classes=relevant_model.classify_new(reads)
+    #     classification.model_fingerprint=relevant_model.uuid()
+    #     classification.model_timestamp=relevant_model.training_timestamp()
+    #     if Counter(classification.predicted_classes)[1]>5:
+    #         classification.get_consensus(reads[classification.predicted_classes==1])
+    #         print(classification.result_description(relevant_model.genotype_snps))
+    #     return classification
+
+    # def classify_new_data(self, target_regions: List[Amplicon], bam_files: List[str]) -> None:
+    #     """Creates nucleotides matrix from existing nucleotide matrices
+    #     and trains model to differentiate reads from positive and negative matrices
+
+    #     :param target_regions: List of amplicons that to extract from BAMs
+    #     :type target_regions: List[Amplicon]
+    #     :param bam_file: BAM file with reads to classify
+    #     :type bam_file: str
+    #     """
+    #     self._target_regions=target_regions
+    #     print("Reading models")
+    #     with open(self._model_output_file, "rb") as model_file:
+    #         self.trained_models=pickle.load(model_file)
+
+    #     print("Processing data")
+    #     results: List[ClassificationResult] = []
+    #     if __name__ == 'model_manager':
+    #         with Pool(self.cpus_to_use) as p:
+    #             with tqdm(total=len(bam_files)) as progress_meter:
+    #                 for bam_file in bam_files:
+    #                     print("Loading file: "+bam_file)
+    #                     reads_data: ReadsMatrix=self._process_bams(bam_file)
+    #                     print("Classifying data: "+bam_file)
+    #                     function_input=[(reads_data.read_matrices[amplicon.name], amplicon, bam_file) for amplicon in target_regions]
+    #                     predictions: List[ClassificationResult]=p.map(self._classify_new_data_helper, function_input)
+    #                     del reads_data
+    #                     progress_meter.update(1)
+    #                     results+=predictions
+    #     return results

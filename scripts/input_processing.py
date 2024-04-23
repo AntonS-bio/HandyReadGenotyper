@@ -1,6 +1,8 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from os.path import expanduser, isdir, exists, dirname, join
 from os import listdir, mkdir
+from pathlib import Path
+import warnings
 
 class InputProcessing:
 
@@ -31,6 +33,32 @@ class InputProcessing:
                         print(f'BAM file {tentative_bam} does not exist. Maybe the location is incorrect?')
         return file_to_classify
     
+    def check_column_in_descriptions(self, description_file: str, column: str, separator: str) -> bool:
+        with open(description_file) as input_file:
+            first_line=input_file.readline().strip().split(separator)
+            if column in first_line:
+                return True
+            else:
+                print(f'Column {column} not found in file {description_file} using column separator "{separator}"')
+                return False
+
+    def get_sample_labels(self, description_file: str, separator: str, label_column: str, bam_files: List[str], sample_labels: Dict[str, str]) -> bool:
+        first_column_values:Dict[str, str]={}
+        with open(description_file) as input_file:
+            first_line = input_file.readline().strip().split(separator)
+            column_index = first_line.index(label_column)
+            for line in input_file:
+                first_column_values[line.strip().split(separator)[0]]=line.strip().split(separator)[column_index]
+
+        outcome=True
+        for file in bam_files:
+            if Path(file).stem not in first_column_values:
+                warnings.warn(f'BAM derived sample name {Path(file).stem} not found in first column of metadata file.')
+                outcome=False
+            else:
+                sample_labels[Path(file).stem]=first_column_values[Path(file).stem]
+        return outcome
+
     def get_ref_bed_model(self, args) -> Tuple[str, str, str]:
         bed_file=expanduser(args.target_regions)
         fasta_file=expanduser(args.reference)

@@ -10,7 +10,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Classify reads in BAM file using existing model or train a model from bam files')
     parser.add_argument('-t','--target_regions',  type=str,
-                        help='Bed file that specifies reference intervals to which reads where mapped', required=True)
+                        help='Bed  file that specifies reference intervals to which reads where mapped', required=True)
     parser.add_argument('-r','--reference', type=str,
                         help='FASTA file with the reference to which reads where mapped', required=True)
     parser.add_argument('-p','--positive_bams', type=str,

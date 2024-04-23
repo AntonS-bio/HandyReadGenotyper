@@ -4,6 +4,7 @@ from read_classifier import ClassificationResult, Classifier
 from os.path import expanduser
 from pathlib import Path
 from datetime import datetime
+import json
 
 OPENER='<tr><td>'
 OPENER_BOLD='<tr class=table_header><td>'
@@ -17,17 +18,15 @@ POSITIVE_AMPLICONS_THRESHOLD=0.2
 
 class ClasssifierReport:
 
-    def __init__(self, output_file: str, models_file: str) -> None:
+    def __init__(self, output_file: str, models_file: str, genotypes_file, sample_labels:Dict[str, str]={}) -> None:
         self.output_file=open( expanduser(output_file), "w" )
-        self.genotypes={"1": 
-            {"2": 
-                {"2.1":{}, "2.2":{}, 
-                "3":{"3.1":{}, "3.2":{},
-                    "4":
-                    {"4.3.1":
-                    {"4.3.1.1":{}}}  } } }}
+        self.genotypes={}
+        if not genotypes_file is None:
+            with open( expanduser(genotypes_file) ) as gt_data:
+                self.genotypes = json.load(gt_data)
         with open(expanduser(models_file), "rb") as model_file:
             self.trained_models: Dict[str, Classifier]=pickle.load(model_file) #Dict[key=amplicon name, value=corresponding model]
+        self.sample_labels=sample_labels
 
     def _clean_sample(self, sample_name) -> str:
         return Path(sample_name).stem
@@ -66,10 +65,15 @@ class ClasssifierReport:
         else:
             self.genotype_row_labels[key]="<p>"+key+"</p>"
         self.genotype_row_order[key]=len(self.genotype_row_order)
-        if len(values)!=0:
-            for key, item in values.items():
+        if "children" in values and len(values["children"])>0:
+            for key, item in values["children"].items():
                 self._write_gt( key, item, depth+1)
 
+    def sample_display_name(self, sample:str):
+        sample_cell_value=self._clean_sample(sample)
+        if self._clean_sample(sample) in self.sample_labels:
+            sample_cell_value=sample_cell_value+"<br>"+self.sample_labels[self._clean_sample(sample)]
+        return sample_cell_value
 
     ####START Write main summary table
     def _write_summary(self):
@@ -106,7 +110,8 @@ class ClasssifierReport:
             self.sample_gts[ self._clean_sample(sample) ]=set([f[0] for f in gts])
             amr_snps=", ".join([f[0] for f in  gts if f[1] and f[0]!=""])
             gts=", ".join([f[0] for f in  gts if not f[1] and f[0]!=""])
-            sample_line_values=['<a href="#'+self._clean_sample(sample)+'">'+self._clean_sample(sample)+"</a>", has_target_org, gts, amr_snps, sum(mapped_reads), highest_cov, lowest_cov ]
+            sample_cell_value=self.sample_display_name(sample)
+            sample_line_values=['<a href="#'+self._clean_sample(sample)+'">'+sample_cell_value+"</a>", has_target_org, gts, amr_snps, sum(mapped_reads), highest_cov, lowest_cov ]
             if i % 2 == 0: #Alternate row colours
                 table_line=OPENER_ALT+MIDDLE.join([str(f) for f in sample_line_values])+CLOSER
             else:
@@ -148,30 +153,34 @@ class ClasssifierReport:
         amplicon_names=sorted(list(set([f.amplicon.name for f in self.results])))
         self.output_file.write("<div class=sample_reports>\n")
         for sample in self.samples:
-            self.output_file.write('<div class=header_line><a name="'+self._clean_sample(sample)+'">'+self._clean_sample(sample)+'</a><div><a href="#Summary">Back to Summary</a></div></div>\n')
+            sample_cell_value=self.sample_display_name(sample)
+            self.output_file.write('<div class=header_line><a name="'+self._clean_sample(sample)+'">'+sample_cell_value+'</a><div><a href="#Summary">Back to Summary</a></div></div>\n')
             self._insert_paragraph(1)
             self.output_file.write("<table>\n")
             self.output_file.write("\t<tbody>\n")
 
-            header_values=["Amplicon","Tot. Reads", "% Target Org.","SNPs", "Implied Genotypess", "Implied AMR","Unknown SNPs"]
+            header_values=["Amplicon","Tot. Reads", "% Target Org.","SNPs", "Implied Genotypes", "Implied AMR","Unknown SNPs"]
             table_header=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER
             self.output_file.write("\t"+table_header+"\n")
             sample_results=self._get_sample_results(sample,self.results)
             for i, amplicon_name in enumerate(amplicon_names):
+                untrained_model=self.trained_models[amplicon_name]._not_trained
+                untrained_suffix="^" if untrained_model else ""
                 amplicon_results=[f for f in sample_results if f.amplicon.name==amplicon_name]
                 if len(amplicon_results)==0:
                     raise ValueError(f'Amplicon {amplicon_name} is missing for sample {sample}')
                 amplicon_result: ClassificationResult = amplicon_results[0]
                 if len(amplicon_result.predicted_classes)<POSITIVE_CASES_THRESHOLD:
-                    row_values=[amplicon_name,"-*", "-","-", "-","-", "-"]
+                    row_values=[amplicon_name,"*", "-","-", "-","-", "-"]
                 else:
                     tot_reads=len(amplicon_result.predicted_classes)
-                    target_org_reads='{0:.1%}'.format(amplicon_result.positive_cases/tot_reads)
+                    target_org_reads='{0:.1%}'.format(amplicon_result.positive_cases/tot_reads)+untrained_suffix
                     snp_num=amplicon_result.num_mismatches
+                    unknown_snps=amplicon_result.num_unknown_snps(self.trained_models[amplicon_name].genotype_snps)
                     known_snps=[f for f in amplicon_result.calculate_genotype(self.trained_models[amplicon_name].genotype_snps)]
                     known_gts=known_snps[0] if known_snps[1] is False else ""
                     known_amrs=known_snps[0] if known_snps[1] is True else ""
-                    row_values=[amplicon_name, tot_reads,target_org_reads,snp_num, known_gts, known_amrs,""]
+                    row_values=[amplicon_name + untrained_suffix, tot_reads,target_org_reads,snp_num, known_gts, known_amrs,unknown_snps]
                 if i % 2 == 0: #Alternate row colours
                     table_row=OPENER_ALT+MIDDLE.join([str(f) for f in row_values])+CLOSER
                 else:
@@ -179,7 +188,8 @@ class ClasssifierReport:
                 self.output_file.write("\t\t"+table_row+"\n")
             self.output_file.write("\t<tbody>\n")
             self.output_file.write("<table>\n")
-            self.output_file.write(f'*Amplicon has fewer than {POSITIVE_CASES_THRESHOLD+1} total reads')
+            self.output_file.write(f'* Amplicon has fewer than {POSITIVE_CASES_THRESHOLD+1} total reads')
+            self.output_file.write(f'^ Using model that was trained without negative cases - results are likely to be less reliable')
             self._insert_paragraph(5)
     ####END Write classification results
 
@@ -189,7 +199,7 @@ class ClasssifierReport:
         self._insert_paragraph(1)
         self.output_file.write("<table>\n")
         self.output_file.write("\t<tbody>\n")
-        header_values=["Genotype"]+[self._clean_sample(f) for f in self.samples]
+        header_values=["Genotype"]+[self.sample_display_name(f) for f in self.samples]
         table_header=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER+"\n"
         self.output_file.write(table_header)
         sorted_genotypes_labels=sorted(self.genotype_row_labels, key= lambda x: self.genotype_row_order[x])
