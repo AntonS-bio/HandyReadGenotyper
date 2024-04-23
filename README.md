@@ -48,7 +48,7 @@ options:
 ```
 ### Reads classification (must have a trained model)
 ```
-usage: classify -t  -r  -b  -m  -o  [-d] [-h]
+usage: classify -t  -r  -b  -m  -o  [-d] [-c] [--column_separator] [-g] [--cpu] [-h]
 
 Classify reads in BAM file using existing model or train a model from bam files. You will get an error if you use "classify.py" instead of "classify"
 
@@ -58,9 +58,15 @@ options:
                         Bed file that specifies reference intervals to which reads where mapped
   -r , --reference      FASTA file with the reference to which reads where mapped
   -b , --bam_files      Directory with, list of, or individual BAM and corresponding BAM index files (.bai)
-  -d , --sample_descriptions 
-                        File with sample descritions (tab delimited)
   -m , --model          Pickle (.pkl) file containing pretrained model. Model must be trained on same reference
-  -o , --output_file    File to store classification results
+  -o , --output_file    Name of HTML file to store classification results
+  -d , --sample_descriptions 
+                        File with sample descritions (tab delimited), first column must be the BAM file name without .bam
+  -c , --description_column 
+                        Column in sample descriptions file to use to augment samples descriptions
+  --column_separator    The column separator for the sample descriptions file, default=tab
+  -g , --genotypes_hierarchy
+                        JSON file with genotypes hierarchy
+  --cpus                Number of CPUs to use, default=1
 
 ```
