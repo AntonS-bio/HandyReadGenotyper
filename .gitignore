@@ -5,6 +5,9 @@ old_scripts/
 OutputData/
 single_amplicon/
 test_scripts/*
+typhi_dat*
+typhi_data/
+wo_paratyphi/
 all_amplicons/
 para*
 map_fastq.sh

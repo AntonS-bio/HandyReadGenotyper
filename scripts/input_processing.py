@@ -53,7 +53,7 @@ class InputProcessing:
         outcome=True
         for file in bam_files:
             if Path(file).stem not in first_column_values:
-                warnings.warn(f'BAM derived sample name {Path(file).stem} not found in first column of metadata file.')
+                warnings.warn(f'BAM derived sample name "{Path(file).stem}" not found in first column of metadata file.')
                 outcome=False
             else:
                 sample_labels[Path(file).stem]=first_column_values[Path(file).stem]
@@ -73,11 +73,12 @@ class InputProcessing:
         if not exists(file_name):
             if isdir(file_name):
                 print(f'Directory {file_name} does not exist. Check the address spelling.')
+                return False
             else:
-                print(f'File {file_name} does not exist. Check the address spelling.')
-            return False
-        else:
-            return True
+                if dirname(file_name)!="" and not exists(dirname(file_name)):
+                    print(f'File {file_name} required directory {dirname(file_name)} which does not exist. Check the address spelling.')
+                    return False
+        return True
 
     def make_dir(self, dir_name: str) -> bool:
         if not exists(dir_name):
@@ -91,4 +92,4 @@ class InputProcessing:
         if isdir(address):
             self.file_exists(dirname(address))
         else:
-            return self.file_exists(dirname(address))
+            return self.file_exists(address)

@@ -170,7 +170,7 @@ class ClasssifierReport:
                 if len(amplicon_results)==0:
                     raise ValueError(f'Amplicon {amplicon_name} is missing for sample {sample}')
                 amplicon_result: ClassificationResult = amplicon_results[0]
-                if len(amplicon_result.predicted_classes)<POSITIVE_CASES_THRESHOLD:
+                if len(amplicon_result.predicted_classes)<=POSITIVE_CASES_THRESHOLD:
                     row_values=[amplicon_name,"*", "-","-", "-","-", "-"]
                 else:
                     tot_reads=len(amplicon_result.predicted_classes)
@@ -188,13 +188,19 @@ class ClasssifierReport:
                 self.output_file.write("\t\t"+table_row+"\n")
             self.output_file.write("\t<tbody>\n")
             self.output_file.write("<table>\n")
-            self.output_file.write(f'* Amplicon has fewer than {POSITIVE_CASES_THRESHOLD+1} total reads')
+            self.output_file.write(f'* Amplicon has fewer than {POSITIVE_CASES_THRESHOLD+1} total reads<br>')
             self.output_file.write(f'^ Using model that was trained without negative cases - results are likely to be less reliable')
             self._insert_paragraph(5)
     ####END Write classification results
 
     ####START write genotypes support tables
     def _write_gt_suppport(self):
+        if len(self.genotypes)==0:
+            #either genotype file not provided, or it's empty.
+            self.output_file.write("<div class=header_line>Genotypes summary:<br>genotypes hierarchy file (.json) not provided or is empty</div>\n")
+            self._insert_paragraph(2)
+            return
+
         self.output_file.write("<div class=header_line>Genotypes summary</div>\n")
         self._insert_paragraph(1)
         self.output_file.write("<table>\n")
@@ -219,7 +225,7 @@ class ClasssifierReport:
 
         self.output_file.write("\t</tbody>\n")
         self.output_file.write("</table>\n")
-        self.output_file.write("<p>S - reads support this genotype; n.d. - target organism not detected in the sample.")
+        self.output_file.write("<p>S - reads support this genotype;<br>n.d. - target organism not detected in the sample.")
         self.output_file.write("</div>\n")
         self._insert_paragraph( 1)
     ####END write genotypes support tables

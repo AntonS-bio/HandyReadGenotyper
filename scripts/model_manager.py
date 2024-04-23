@@ -298,7 +298,7 @@ class ModelManager:
 
             if Counter(classification.predicted_classes)[1]>5:
                 classification.get_consensus(reads[classification.predicted_classes==1])
-                print(classification.result_description(relevant_model.genotype_snps))
+                #print(classification.result_description(relevant_model.genotype_snps)) #this doesn't work well in parallelised version.
             results.append(classification)
         del reads_data
         return results

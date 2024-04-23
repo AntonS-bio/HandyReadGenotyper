@@ -61,10 +61,10 @@ def main():
 
     sample_labels: Dict[str, str] = {}
     if args.description_column is None and not args.sample_descriptions is None:
-        print("Description column was provided (-c), but the file was not (-d)")
+        print("Description file was provided (-d), but the column to use was not (-c)")        
         exit(0)
     if not args.description_column is None and args.sample_descriptions is None:
-        print("Description file was provided (-d), but the column to use was not (-c)")
+        print("Description column was provided (-c), but the file was not (-d)")
         exit(0)
     elif not args.description_column is None and not args.sample_descriptions is None:
         metadata_file=args.sample_descriptions
