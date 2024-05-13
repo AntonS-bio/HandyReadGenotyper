@@ -11,6 +11,7 @@ OPENER_BOLD='<tr class=table_header><td>'
 OPENER_ALT='<tr class=alt_row><td>'
 CLOSER='</td></tr>'
 MIDDLE='</td><td>'
+MIDDLE_WIDE='</td class=td_alt_wide><td>'
 POSITIVE_CASES_THRESHOLD=10
 POSITIVE_AMPLICONS_THRESHOLD=0.2
 
@@ -27,6 +28,7 @@ class ClasssifierReport:
         with open(expanduser(models_file), "rb") as model_file:
             self.trained_models: Dict[str, Classifier]=pickle.load(model_file) #Dict[key=amplicon name, value=corresponding model]
         self.sample_labels=sample_labels
+        self.sample_hyperlinks={} #key=name, value=
 
     def _clean_sample(self, sample_name) -> str:
         return Path(sample_name).stem
@@ -170,8 +172,9 @@ class ClasssifierReport:
                 if len(amplicon_results)==0:
                     raise ValueError(f'Amplicon {amplicon_name} is missing for sample {sample}')
                 amplicon_result: ClassificationResult = amplicon_results[0]
+                first_cell='<a href="#'+self._clean_sample(sample)+'_'+amplicon_name+'_consensus"/>'+amplicon_name
                 if len(amplicon_result.predicted_classes)<=POSITIVE_CASES_THRESHOLD:
-                    row_values=[amplicon_name,"*", "-","-", "-","-", "-"]
+                    row_values=[first_cell,"*", "-","-", "-","-", "-"]
                 else:
                     tot_reads=len(amplicon_result.predicted_classes)
                     target_org_reads='{0:.1%}'.format(amplicon_result.positive_cases/tot_reads)+untrained_suffix
@@ -180,7 +183,7 @@ class ClasssifierReport:
                     known_snps=[f for f in amplicon_result.calculate_genotype(self.trained_models[amplicon_name].genotype_snps)]
                     known_gts=known_snps[0] if known_snps[1] is False else ""
                     known_amrs=known_snps[0] if known_snps[1] is True else ""
-                    row_values=[amplicon_name + untrained_suffix, tot_reads,target_org_reads,snp_num, known_gts, known_amrs,unknown_snps]
+                    row_values=[first_cell + untrained_suffix, tot_reads,target_org_reads,snp_num, known_gts, known_amrs,unknown_snps]
                 if i % 2 == 0: #Alternate row colours
                     table_row=OPENER_ALT+MIDDLE.join([str(f) for f in row_values])+CLOSER
                 else:
@@ -230,6 +233,44 @@ class ClasssifierReport:
         self._insert_paragraph( 1)
     ####END write genotypes support tables
 
+    def _write_consensus_sequences(self):
+        self._insert_paragraph(1)
+        self.output_file.write("<div class=header_line>Consensus sequences</div>\n")
+        self._insert_paragraph(1)
+        self.output_file.write("<table>\n")
+        self.output_file.write("\t<tbody>\n")
+        header_values=["Sample", "Amplicon", "# of target reads", "Mismatches <br/> vs Reference", "Consensus sequence"]
+        table_header=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER+"\n"
+        self.output_file.write(table_header)
+
+        for i, result in enumerate(self.results):
+            snp_values: List[str] = []
+            for known_snp in result.known_snps(self.trained_models[result.amplicon.name].genotype_snps):
+                snp_value="Pos:"+str(known_snp["Pos"])
+                snp_value+=", Change:"+result.amplicon.ref_seq.sequence[known_snp["Pos"]] + ">"+known_snp["Nucleotide"]
+                snp_value+=", Implication: "+known_snp["SNP"].get_genotype(known_snp["Nucleotide"])
+                snp_values.append(snp_value)
+            for known_snp in result.unknown_snps(self.trained_models[result.amplicon.name].genotype_snps):
+                snp_value="Pos:"+str(known_snp["Pos"])
+                snp_value+=", Change:"+result.amplicon.ref_seq.sequence[known_snp["Pos"]] + ">"+known_snp["Nucleotide"]
+                snp_value+=", Implication: Unknown"
+                snp_values.append(snp_value)
+            snp_values='<br/>'.join(snp_values)
+            short_name=self._clean_sample(result.sample)
+            hyperlink_name=short_name+"_"+result.amplicon.name+"_consensus"
+            first_cell='<a name="'+hyperlink_name+'" href="#'+short_name+'">'+self.sample_display_name(result.sample)+'</a>'
+            row_values=[first_cell, result.amplicon.name, result.positive_cases, snp_values, result.consensus]
+            if i % 2 == 0: #Alternate row colours
+                table_row=OPENER_ALT + MIDDLE_WIDE.join([str(f) for f in row_values])+CLOSER
+            else:
+                table_row=OPENER + MIDDLE_WIDE.join([str(f) for f in row_values])+CLOSER
+            self.output_file.write("\t\t"+table_row+"\n")
+
+
+
+        self.output_file.write("\t</tbody>\n")
+        self.output_file.write("</table>\n")
+        self.output_file.write("</div>\n")
 
     def create_report(self, results: List[ClassificationResult]):
         self.results: List[ClassificationResult] = results
@@ -247,7 +288,7 @@ class ClasssifierReport:
 
         self._write_model_summary()
 
-
+        self._write_consensus_sequences()
         self.output_file.write("</body>\n")
         self.output_file.write("</html>\n")
         self.output_file.close()

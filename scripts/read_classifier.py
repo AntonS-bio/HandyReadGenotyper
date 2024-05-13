@@ -208,7 +208,25 @@ class ClassificationResult:
             if len(known_alleles)==0 :
                 result+=1
         return result
-               
+
+    def unknown_snps(self, genot_snps:List[GenotypeSNP]) -> Dict[int, str]:
+        result: List[GenotypeSNP] = []
+        for pos, alt in self._mismatches.items():
+            known_alleles=[f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
+            if len(known_alleles)==0 :
+                result.append( {"Pos": pos,"Nucleotide": alt} )
+        return result
+
+    def known_snps(self, genot_snps:List[GenotypeSNP]) -> List[GenotypeSNP]:
+        result: List[GenotypeSNP] = []
+        for pos, alt in self._mismatches.items():
+            known_alleles=[f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
+            if len(known_alleles)==1:
+                result.append( {"Pos": pos,"Nucleotide": alt, "SNP": known_alleles[0]} )
+            elif len(known_alleles)>1:
+                raise ValueError(f'Allele {alt} at {self._amplicon.ref_contig} pos {str(pos)} implies more than one genotype, check VCF supplied at training!')
+        return result
+
     #region
     @property
     def predicted_classes(self) -> np.array:

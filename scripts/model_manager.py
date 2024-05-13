@@ -319,8 +319,9 @@ class ModelManager:
         if __name__ == 'model_manager':
             with Pool(self.cpus_to_use) as p:
                 with tqdm(total=len(bam_files)) as progress_meter:
-                        predictions: List[ClassificationResult]=p.map(self._classify_new_data_helper, bam_files)
-                        progress_meter.update(1)
+                        predictions: List[ClassificationResult] = list(tqdm( p.imap(func=self._classify_new_data_helper, iterable=bam_files), total=len(bam_files) ))
+                        #predictions: List[ClassificationResult]=p.map(self._classify_new_data_helper, bam_files)
+                        #progress_meter.update(1)
                         results = [k for f in predictions for k in f]
         return results
 
