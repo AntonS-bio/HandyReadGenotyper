@@ -5,6 +5,7 @@ from os.path import expanduser
 from pathlib import Path
 from datetime import datetime
 import json
+from map import MappingResult
 
 OPENER='<tr><td>'
 OPENER_BOLD='<tr class=table_header><td>'
@@ -19,7 +20,7 @@ POSITIVE_AMPLICONS_THRESHOLD=0.2
 
 class ClasssifierReport:
 
-    def __init__(self, output_file: str, models_file: str, genotypes_file, sample_labels:Dict[str, str]={}) -> None:
+    def __init__(self, output_file: str, models_file: str, genotypes_file, sample_labels:Dict[str, str]={}, mapping_results: List[MappingResult]=[]) -> None:
         self.output_file=open( expanduser(output_file), "w" )
         self.genotypes={}
         if not genotypes_file is None:
@@ -28,7 +29,10 @@ class ClasssifierReport:
         with open(expanduser(models_file), "rb") as model_file:
             self.trained_models: Dict[str, Classifier]=pickle.load(model_file) #Dict[key=amplicon name, value=corresponding model]
         self.sample_labels=sample_labels
-        self.sample_hyperlinks={} #key=name, value=
+        self.sample_hyperlinks={} 
+        self.mapping_results={}
+        for item in mapping_results:
+            self.mapping_results[item.sample_name] = item.total_reads
 
     def _clean_sample(self, sample_name) -> str:
         return Path(sample_name).stem
@@ -36,7 +40,7 @@ class ClasssifierReport:
     def _write_main_header(self, file_handle):
         file_handle.write("<table>\n")
         file_handle.write("\t<tbody>\n")
-        header_values=["Sample","Has Target Organism*", "Implied Genotypes","Implied AMR","Total Mapped Reads"," Highest read count","Lowest read count"]
+        header_values=["Sample","Has Target Organism*", "Implied Genotypes","Implied AMR", "Sequencing Reads","Total Mapped Reads"," Highest read count","Lowest read count"]
         header_line=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER
         file_handle.write("\t"+header_line)
         file_handle.write("\n")
@@ -113,7 +117,18 @@ class ClasssifierReport:
             amr_snps=", ".join([f[0] for f in  gts if f[1] and f[0]!=""])
             gts=", ".join([f[0] for f in  gts if not f[1] and f[0]!=""])
             sample_cell_value=self.sample_display_name(sample)
-            sample_line_values=['<a href="#'+self._clean_sample(sample)+'">'+sample_cell_value+"</a>", has_target_org, gts, amr_snps, sum(mapped_reads), highest_cov, lowest_cov ]
+            if self._clean_sample(sample) in self.mapping_results: #only works if mapping was done by HRG
+                sequenced_reads=self.mapping_results[self._clean_sample(sample)]
+            else:
+                sequenced_reads="Unavailable"
+            sample_line_values=['<a href="#'+self._clean_sample(sample)+'">'+sample_cell_value+"</a>", 
+                                has_target_org, 
+                                gts, 
+                                amr_snps, 
+                                sequenced_reads,
+                                sum(mapped_reads), 
+                                highest_cov, 
+                                lowest_cov ]
             if i % 2 == 0: #Alternate row colours
                 table_line=OPENER_ALT+MIDDLE.join([str(f) for f in sample_line_values])+CLOSER
             else:

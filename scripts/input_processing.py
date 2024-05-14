@@ -75,9 +75,8 @@ class InputProcessing:
                 print(f'Directory {file_name} does not exist. Check the address spelling.')
                 return False
             else:
-                if dirname(file_name)!="" and not exists(dirname(file_name)):
-                    print(f'File {file_name} required directory {dirname(file_name)} which does not exist. Check the address spelling.')
-                    return False
+                print(f'File {file_name} required directory {dirname(file_name)} which does not exist. Check the address spelling.')
+                return False
         return True
 
     def make_dir(self, dir_name: str) -> bool:

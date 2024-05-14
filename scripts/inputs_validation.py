@@ -18,7 +18,7 @@ class ValidateFiles:
         return self._validated_files
 
 
-    def validate_many(self, file_list, files_type) -> True:
+    def validate_many(self, file_list, files_type) -> bool:
         if len(file_list)==0:
             raise ValueError(f'Cannot validate an empty list')
         with tqdm(total=len(file_list)) as progress_meter:
@@ -34,38 +34,47 @@ class ValidateFiles:
                 progress_meter.update(1)
         return True
 
-    def validate_bed(self, bed_file_name: str, **kwargs) -> True:
+    def validate_bed(self, bed_file_name: str, **kwargs) -> bool:
         """Class for validate input bedfile
         :key min_col_number: minimum required number of column in bed file, default: 3, int
         """        
         if not exists(bed_file_name):
-            raise FileExistsError(f'File or directory {bed_file_name} does not exist')
+            print(f'File or directory {bed_file_name} does not exist')
+            return False
         min_column_count=kwargs.get("min_col_number",3)
         with open(bed_file_name) as bed_file:
             for line_counter, line in enumerate(bed_file):
                 if line.find("\t")==-1:
-                    raise ValueError(f'No tab-delimited found in file {bed_file_name} on line {line_counter}:\n {line}')
+                    print(f'No tab-delimited found in file {bed_file_name} on line {line_counter}:\n {line}')
+                    return False
                 line_values=line.strip().split("\t")
                 if len(line_values)<min_column_count:
-                    raise ValueError(f'Min number of tab-delimited columns is {min_column_count}, but only {len(line_values)} were found on line {line_counter}:\n {line} ')
+                    print(f'Min number of tab-delimited columns is {min_column_count}, but only {len(line_values)} were found on line {line_counter}:\n {line} ')
+                    return False
                 if not line_values[1].isdigit() or not line_values[2].isdigit():
-                    raise ValueError(f'Expecting numeric values in column 1 and 2, but none numeric values (posibly decimal) values were found in {bed_file_name} on line {line_counter}:\n {line}')
+                    print(f'Expecting numeric values in column 1 and 2, but none numeric values (posibly decimal) values were found in {bed_file_name} on line {line_counter}:\n {line}')
+                    return False
                 if int(line_values[2])<=int(line_values[1]):
-                    raise ValueError(f'Value in column 2 must be greater than value in column 1. Check {bed_file_name} on line {line_counter}:\n {line}')
+                    print(f'Value in column 2 must be greater than value in column 1. Check {bed_file_name} on line {line_counter}:\n {line}')
+                    return False
             if 'line_counter' not in vars():
-                raise ValueError(f'{bed_file_name} is empty')
+                print(f'{bed_file_name} is empty')
+                return False
         self._validated_files.add(bed_file_name)
         return True
 
-    def validate_fasta(self, fasta_file_name: str) -> True:
+    def validate_fasta(self, fasta_file_name: str) -> bool:
         if not exists(fasta_file_name):
-            raise FileExistsError(f'File or directory {fasta_file_name} does not exist')
+            print(f'File or directory {fasta_file_name} does not exist')
+            return False
         with open(fasta_file_name) as fasta_file:
             first_fifty_char=fasta_file.readline()[0:50]
             if len(first_fifty_char)==0:
-                raise ValueError(f'Fasta file {fasta_file_name} is empty')
+                print(f'Fasta file {fasta_file_name} is empty')
+                return False
             if first_fifty_char[0]!=">":
-                raise ValueError(f'Fasta file must have ">" on first line in {fasta_file_name}\n {first_fifty_char}')
+                print(f'Fasta file must have ">" on first line in {fasta_file_name}\n {first_fifty_char}')
+                return False
         self._validated_files.add(fasta_file_name)
         return True
     
@@ -92,7 +101,8 @@ class ValidateFiles:
                 break
         if len(bed_contigs)!=0:
             missing_contigs="\n".join( list(bed_contigs)[0:min(len(bed_contigs),10)] )
-            raise ValueError(f'Some bed file {bed_file_name} contig IDs not found in fasta file \n Ex. {fasta_file_name} (first 10):\n {missing_contigs} ')
+            print(f'Some bed file {bed_file_name} contig IDs not found in fasta file \n Ex. {fasta_file_name} (first 10):\n {missing_contigs} ')
+            return False
         return True
             
     def contigs_in_vcf(self, bed_file_name: str, vcf_file_name: str) -> bool:

@@ -48,7 +48,9 @@ setup(name='HandyReadGenotyper',
           'scripts/inputs_validation.py',
           'scripts/model_manager.py',
           'scripts/read_classifier.py',
-          'scripts/train.py'
+          'scripts/train.py',
+          'scripts/classifier_report.py',
+          'scripts/map.py'
       ],
       cmdclass={'install': HandyReadGenotyperInstall}
 )

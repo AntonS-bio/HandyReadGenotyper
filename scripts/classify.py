@@ -1,10 +1,13 @@
 import argparse
 from typing import List, Dict
+from os.path import  expanduser
 from inputs_validation import ValidateFiles
 from data_classes import Amplicon
 from input_processing import InputProcessing
 from model_manager import ModelManager
 from classifier_report import ClasssifierReport
+from map import ReadMapper
+
 
 def main():
 
@@ -13,8 +16,10 @@ def main():
                         help='Bed file that specifies reference intervals to which reads where mapped', required=True)
     parser.add_argument('-r','--reference', metavar='', type=str,
                         help='FASTA file with the reference to which reads where mapped', required=True)
-    parser.add_argument('-b','--bam_files', metavar='', type=str,
+    parser.add_argument('-b','--bams', metavar='', type=str,
                         help='Directory with, list of, or individual BAM and corresponding BAM index files (.bai)', required=True)
+    parser.add_argument('-f','--fastqs', metavar='', type=str,
+                        help='Directory with ONT run results or individual FASTQ file', required=False)
     parser.add_argument('-m','--model', metavar='', type=str,
                         help='Pickle (.pkl) file containing pretrained model. Model must be trained on same reference', required=True)
     parser.add_argument('-d','--sample_descriptions', metavar='', type=str,
@@ -43,13 +48,40 @@ def main():
 
     input_processing=InputProcessing()
 
-    file_to_classify=input_processing.get_bam_files( args.bam_files )
-    if len(file_to_classify)==0:
-        exit(0)
-
     bed_file, fasta_file, model_file = input_processing.get_ref_bed_model(args)
     if bed_file=="":
         exit(0)
+
+    file_validator=ValidateFiles()
+    if not file_validator.validate_bed(bed_file):
+        exit(0)
+    if not file_validator.validate_fasta(fasta_file):
+        exit(0)
+    if not file_validator.contigs_in_fasta(bed_file, fasta_file ):
+        exit(0)
+
+    if not args.sample_descriptions is None: #this has to be checked early in case file does not exist
+        metadata_file=args.sample_descriptions
+        if not input_processing.file_exists(metadata_file):
+            exit(0)
+
+    #Map the raw reads or collect bams to classify
+    if not args.fastqs is None:
+        if not input_processing.file_exists(args.fastqs):
+            exit(0)
+        bams_dir=expanduser(args.bams)
+        mapper=ReadMapper("~/HandyReadGenotyper/temp_data",
+                        args.fastqs,
+                        fasta_file, cpu_to_use)
+        if not mapper.map(bams_dir):
+            exit()
+        file_to_classify=[f.bam_file for f in mapper.results]
+    else: #use the bams provided
+        file_to_classify=input_processing.get_bam_files( args.bams )
+    if len(file_to_classify)==0:
+        exit(0)
+
+    #exit(0)
 
     if not input_processing.check_address(args.output_file):
         exit(0)
@@ -67,20 +99,13 @@ def main():
         print("Description column was provided (-c), but the file was not (-d)")
         exit(0)
     elif not args.description_column is None and not args.sample_descriptions is None:
-        metadata_file=args.sample_descriptions
         metadata_column=args.description_column
         metadata_sep=args.column_separator
-        input_processing.file_exists(metadata_file)
         if not input_processing.check_column_in_descriptions(metadata_file,metadata_column, metadata_sep):
             exit(1)
         if not input_processing.get_sample_labels(metadata_file,metadata_sep, metadata_column, file_to_classify, sample_labels):
             exit(1)
 
-
-    file_validator=ValidateFiles()
-    file_validator.validate_bed(bed_file)
-    file_validator.validate_fasta(fasta_file)
-    file_validator.contigs_in_fasta(bed_file, fasta_file )
 
     target_regions: List[Amplicon] = []
     with open(bed_file) as input_file:
@@ -89,7 +114,10 @@ def main():
 
     model_manager=ModelManager(model_file, cpu_to_use)
     results=model_manager.classify_new_data(target_regions, file_to_classify)
-    report=ClasssifierReport(output_file, model_file, args.genotypes_hierarchy, sample_labels)
+    if not args.fastqs is None:
+        report=ClasssifierReport(output_file, model_file, args.genotypes_hierarchy, sample_labels, mapping_results=mapper.results)
+    else:
+        report=ClasssifierReport(output_file, model_file, args.genotypes_hierarchy, sample_labels)
     report.create_report(results)
 
 if __name__=="__main__":

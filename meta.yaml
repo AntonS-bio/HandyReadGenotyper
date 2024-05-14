@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://github.com/AntonS-bio/HandyReadGenotyper/archive/{{ version }}.tar.gz
-  sha256: fdb514deaf7b9c483bef48e1f1bf955d948697e78ef128aaf41e198c0fc38f6e
+  sha256: 829a0cc59c8781e338dbe809d70f4d50284d831e16f3743a3bf4df8d48605c44
 
 build:
   noarch: python
@@ -19,15 +19,17 @@ build:
 requirements:
   host:
     - pip
-    - python
+    - python >=3.8,<3.9.0a0
   run:
-    - python
+    - python >=3.8,<3.9.0a0
     - pandas >=2.0.0
     - scikit-learn >=1.3.*
     - pysam >=0.22.0
     - numpy >=1.20.*
     - tqdm >=4.66.*
     - biopython >=1.78
+    - minimap2
+    - samtools
 
 test:
   commands:
