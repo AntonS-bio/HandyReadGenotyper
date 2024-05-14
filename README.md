@@ -8,6 +8,8 @@ This tool, HandyReadGenotyper, has two modes:
     1. Train a classification model using existing Nanopore data - this can be your own data, data from genomic repositories (ENA, NCBI, DDBJ) or a mix of these
     2. Classify ONT sequencing data using the model trained in (1)
 
+
+
 ## Setup
 The easiest way to setup the tool is to use conda or mamba. If you are using macOS or Linux, you can install via command line. If you are using Windows 10+, the best option is to setup Windows Subsystem Linux (WSL) first which will give you access to Linux functionality from you Windows system. After that, you can use conda or mamba.
 
@@ -27,7 +29,9 @@ conda install -c bioconda -c conda-forge handyreadgenotyper
 ```
 but this is not recommended.
 
-### Model training
+
+
+## Model training
 If you have been given a model pickle file - you don't have to do this, so go to Read Classification section. If you haven't been given one, ask if anyone on your project already has it - chances are bioinformatician does.
 
 The idea of training is that to distinguish target and non-target organism, HandyReadGenotyper needs to see a lot of examples of amplicon sequencing data from both. The examples of target organisms should be fairly easy to find - your own sequencing data should work. For non-target organism, you probably won't be able to generate sufficient data yourself, so you have to rely on public data. SRA database at NCBI is a good source. I recommend finding taxa for your target organism/serovar/strain and taking all available ONT sequencing data within two-three taxonomic layers above. For example, if you are looking at Salmonella, you may decide to take all ONT data from all taxa within Enterobacterales. Once raw ONT data is mapped to FASTQs these will be your negative BAMs. If in your test sequencing runs you often see an off-target amplification of same organism, add it to a negative set.
@@ -53,10 +57,16 @@ options:
   -m , --bams_matrix    Matrix with precalculated BAM matrices
 
 ```
-### Reads classification (must have a trained model, see Model training above)
+
+## Reads classification (must have a trained model, see Model training above)
 The purpose of classifier is to take all reads provided to it and identify which came from your target and which from non-target. The classifier will use extra information you provide to generate a nice HTML report file with results - you can see sample here in test_data/report.html. If you download this file it can be opened in any browser. 
 
+**IMPORTANT all BAMs must be indexed using samtools index command.**
+
 To run classifier you have to main options. First, if you have already mapped FASTQs to amplicons reference sequence, you can provide the report with either directory with BAM files, a single BAM file or a plain text file with list of BAM files (full address including directory) to classify. Examples below use supplied test data from test_data.
+
+
+### I have BAMS files, I already mapped FASTQs to references
 
 ```
 classify -t ./amplicons.bed -r ./amplicons.fna -b ./bams/ -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
@@ -65,7 +75,11 @@ Maps all BAMs in directory ./bams/ while this will only classify sample_1.bam
 ```
 classify -t ./amplicons.bed -r ./amplicons.fna -b ./bams/sample_1.bam -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
 ```
-**IMPORTANT all BAMs must be indexed using samtools index command.**
+
+
+
+
+### I only have FASTQ files, but no BAMs
 
 If you don't have bams, you can use "-f" option to map FASTQs using minimap2 to the amplicon reference. The command only differs from above by this extra parameter. Not that "-b" is still present - it will be a directory to which the mapped BAMs will be saved. 
 ```
@@ -93,7 +107,8 @@ Run_20
              |->FAX83461_pass_barcode3_503f1897_ffa628d1_3.fastq.gz
 ```
 Normally, you'd need to merge the the files from each barcode before mapping, but HandyReadGenotype will do it for you.
-**Important if HandyReadGenotyper is doing the mapping, it will call each output BAM by the name with corresponding barcode (ex. barcode2.bam), this may overwrite some old BAMs**
+
+**IMPORTANT if HandyReadGenotyper is doing the mapping, it will call each output BAM by the name with corresponding barcode (ex. barcode2.bam), this may overwrite some old BAMs**
 
 Neither the metadata file (-d), nor genotypes hierarchy (-g) are required, but you probably already have them and they substantially enrich the classification report, so it's worth using them. The metadata file can be where you keep track of sequencing results, the genotypes hierarchy file was likely used when your PCR primers were generated. 
 
