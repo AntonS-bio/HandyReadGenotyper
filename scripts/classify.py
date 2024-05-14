@@ -78,8 +78,8 @@ def main():
     else: #use the bams provided
         file_to_classify=input_processing.get_bam_files( args.bams )
     if len(file_to_classify)==0:
+        print("No files to classify. Please check that you have specified correct FASTQs directory if using -f or existing BAMs if not using -f")
         exit(0)
-
     #exit(0)
 
     if not input_processing.check_address(args.output_file):
