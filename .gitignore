@@ -9,6 +9,7 @@ typhi_dat*
 typhi_data/
 wo_paratyphi/
 all_amplicons/
+temp*
 para*
 map_fastq.sh
 murium.tsv
