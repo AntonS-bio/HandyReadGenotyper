@@ -17,13 +17,13 @@ def main():
     parser.add_argument('-r','--reference', metavar='', type=str,
                         help='FASTA file with the reference to which reads where mapped', required=True)
     parser.add_argument('-b','--bams', metavar='', type=str,
-                        help='Directory with, list of, or individual BAM and corresponding BAM index files .bai', required=True)
+                        help='Directory with, list of, or individual BAM and corresponding BAM index files (.bai)', required=True)
     parser.add_argument('-m','--model', metavar='', type=str,
-                        help='Pickle .pkl file containing pretrained model. Model must be trained on same reference', required=True)
+                        help='Pickle (.pkl) file containing pretrained model. Model must be trained on same reference', required=True)
     parser.add_argument('-f','--fastqs', metavar='', type=str,
                         help='Directory with ONT run results or individual FASTQ file', required=False)
     parser.add_argument('-d','--sample_descriptions', metavar='', type=str,
-                        help='File with sample descritions, tab delimited, first column must be the BAM file name without .bam', required=False)
+                        help='File with sample descritions (tab delimited), first column must be the BAM file name without .bam', required=False)
     parser.add_argument('-c','--description_column', metavar='', type=str,
                         help='Column in sample description file to use to augmnet samples descriptions', required=False)
     parser.add_argument('-g','--genotypes_hierarchy', type=str,
