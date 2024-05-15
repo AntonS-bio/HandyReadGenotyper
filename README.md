@@ -88,23 +88,20 @@ classify -t ./amplicons.bed -r ./amplicons.fna -b ./bams/ -f ./fastqs/ -m model.
 If you look at structure of test_data/fastqs you will see it's a bit odd. It's very difficult to capture all possible ways the FASTQs will be provided, but the most likely one if a result of single run from ONT devices. When these were multiplexed (most likely use case) ONT device will create a directory for each barcode and will place multiple FASTQ files for this barcode into that directory. It will likely look like this:
 ```
 Run_20
-    | 
-     ->barcode1
-             |->FAX83461_pass_barcode1_503f1897_ffa628d1_1.fastq.gz
-             |->FAX83461_pass_barcode1_503f1897_ffa628d1_2.fastq.gz
-             |->FAX83461_pass_barcode1_503f1897_ffa628d1_3.fastq.gz
+      ↳ barcode1
+               ↳ FAX83461_pass_barcode1_503f1897_ffa628d1_1.fastq.gz
+               ↳ FAX83461_pass_barcode1_503f1897_ffa628d1_2.fastq.gz
+               ↳ FAX83461_pass_barcode1_503f1897_ffa628d1_3.fastq.gz
     
-    |
-     ->barcode2
-             |->FAX83461_pass_barcode2_503f1897_ffa628d1_1.fastq.gz
-             |->FAX83461_pass_barcode2_503f1897_ffa628d1_2.fastq.gz
-             |->FAX83461_pass_barcode2_503f1897_ffa628d1_3.fastq.gz
+      ↳ barcode2
+               ↳ FAX83461_pass_barcode2_503f1897_ffa628d1_1.fastq.gz
+               ↳ FAX83461_pass_barcode2_503f1897_ffa628d1_2.fastq.gz
+               ↳ FAX83461_pass_barcode2_503f1897_ffa628d1_3.fastq.gz
     
-    |
-     ->barcode3
-             |->FAX83461_pass_barcode3_503f1897_ffa628d1_1.fastq.gz
-             |->FAX83461_pass_barcode3_503f1897_ffa628d1_2.fastq.gz
-             |->FAX83461_pass_barcode3_503f1897_ffa628d1_3.fastq.gz
+      ↳ barcode3
+               ↳ FAX83461_pass_barcode3_503f1897_ffa628d1_1.fastq.gz
+               ↳ FAX83461_pass_barcode3_503f1897_ffa628d1_2.fastq.gz
+               ↳ FAX83461_pass_barcode3_503f1897_ffa628d1_3.fastq.gz
 ```
 Normally, you'd need to merge the the files from each barcode before mapping, but HandyReadGenotype will do it for you.
 
