@@ -123,7 +123,7 @@ options:
   -m , --model          Pickle (.pkl) file containing pretrained model. Model must be trained on same reference
   -o , --output_file    Name of HTML file to store classification results
   -d , --sample_descriptions 
-                        File with sample descritions (tab delimited), first column must be the BAM file name without .bam
+                        File with sample descriptions (tab delimited), first column must be the BAM file name without .bam
   -c , --description_column 
                         Column in sample descriptions file to use to augment samples descriptions
   --column_separator    The column separator for the sample descriptions file, default=tab
