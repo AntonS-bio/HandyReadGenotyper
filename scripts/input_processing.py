@@ -1,5 +1,5 @@
 from typing import List, Tuple, Dict
-from os.path import expanduser, isdir, exists, dirname, join
+from os.path import expanduser, isdir, exists, dirname, join, split
 from os import listdir, mkdir
 from pathlib import Path
 import warnings
@@ -87,8 +87,15 @@ class InputProcessing:
             return False
         return True
     
-    def check_address(self, address:str) -> bool:
-        if isdir(address):
-            self.file_exists(dirname(address))
+    def check_output_dir(self, address:str) -> str:
+        full_address=expanduser(address)
+        dir, file = split(full_address)
+        if dir=="":
+            #only file is supplied, output the results in current directory
+            return expanduser(join(".",address))
         else:
-            return self.file_exists(address)
+            if not exists(dir):
+                print(f'File {address} requires directory {dir} which does not exist. Please create and try again.')
+                exit(0)
+            else:
+                return full_address

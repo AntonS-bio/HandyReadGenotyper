@@ -23,7 +23,7 @@ def main():
     parser.add_argument('-f','--fastqs', metavar='', type=str,
                         help='Directory with ONT run results or individual FASTQ file', required=False)
     parser.add_argument('-d','--sample_descriptions', metavar='', type=str,
-                        help='File with sample descritions (tab delimited), first column must be the BAM file name without .bam', required=False)
+                        help='File with sample descriptions (tab delimited), first column must be the BAM file name without .bam', required=False)
     parser.add_argument('-c','--description_column', metavar='', type=str,
                         help='Column in sample description file to use to augmnet samples descriptions', required=False)
     parser.add_argument('-g','--genotypes_hierarchy', type=str,
@@ -82,9 +82,7 @@ def main():
         exit(0)
     #exit(0)
 
-    if not input_processing.check_address(args.output_file):
-        exit(0)
-    output_file=args.output_file
+    output_file=input_processing.check_output_dir(args.output_file)
 
     if not args.genotypes_hierarchy is None:
         if not input_processing.file_exists(args.genotypes_hierarchy):
