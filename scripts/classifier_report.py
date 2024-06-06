@@ -40,7 +40,7 @@ class ClasssifierReport:
     def _write_main_header(self, file_handle):
         file_handle.write("<table>\n")
         file_handle.write("\t<tbody>\n")
-        header_values=["Sample","Has Target Organism*", "Implied Genotypes","Implied AMR", "Sequencing Reads","Total Mapped Reads"," Highest read count","Lowest read count"]
+        header_values=["Sample","Has Target Organism*", "Implied Genotypes","Implied AMR", "Sequencing Reads","Mapped, correct length", "Mapped, but too short/long"," Highest read count","Lowest read count"]
         header_line=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER
         file_handle.write("\t"+header_line)
         file_handle.write("\n")
@@ -98,24 +98,30 @@ class ClasssifierReport:
         for i, sample in enumerate(self.samples):
             sample_results=self._get_sample_results(sample,self.results)
             mapped_reads=[f.positive_cases+f.negative_cases for f in sample_results]
+            wrong_len_reads=sum([f.wrong_len_reads[f.amplicon.name] for f in sample_results])
             highest_cov = sample_results[ mapped_reads.index(max(mapped_reads)) ]
             highest_cov=f'{len(highest_cov.predicted_classes)}<br>({highest_cov.amplicon.name})'
             lowest_cov=sample_results[ mapped_reads.index(min(mapped_reads)) ]
             lowest_cov=f'{len(lowest_cov.predicted_classes)}<br>({lowest_cov.amplicon.name})'
             #threshold settings: POSITIVE_AMPLICONS_THRESHOLD% of amplicons must have >POSITIVE_CASES_THRESHOLD target reads
             has_target_org="No"
+            amr_snps=""
+            gts=""
             if len([f.positive_cases for f in sample_results if f.positive_cases>POSITIVE_CASES_THRESHOLD])>len(sample_results)*POSITIVE_AMPLICONS_THRESHOLD:
                 has_target_org="Yes"
             else:
                 self.empty_samples.add(self._clean_sample(sample))
             
-            gts=sorted(set([f.calculate_genotype(self.trained_models[f.amplicon.name].genotype_snps) for f in sample_results]))
-            #calculate_genotype( ) ouputs Tuple[str, bool] with SNP name (gt) and bool to indicate AMR (True) or not (False)
-            if "" in gts:
-                gts.pop(gts.index(""))
-            self.sample_gts[ self._clean_sample(sample) ]=set([f[0] for f in gts])
-            amr_snps=", ".join([f[0] for f in  gts if f[1] and f[0]!=""])
-            gts=", ".join([f[0] for f in  gts if not f[1] and f[0]!=""])
+            if has_target_org=="No": #do not show implied GTs if no target organism to avoid confusion.
+                gts=""
+            else:
+                gts=sorted(set([f.calculate_genotype(self.trained_models[f.amplicon.name].genotype_snps) for f in sample_results]))
+                #calculate_genotype( ) ouputs Tuple[str, bool] with SNP name (gt) and bool to indicate AMR (True) or not (False)
+                if "" in gts:
+                    gts.pop(gts.index(""))
+                self.sample_gts[ self._clean_sample(sample) ]=set([f[0] for f in gts])
+                amr_snps=", ".join([f[0] for f in  gts if f[1] and f[0]!=""])
+                gts=", ".join([f[0] for f in  gts if not f[1] and f[0]!=""])
             sample_cell_value=self.sample_display_name(sample)
             if self._clean_sample(sample) in self.mapping_results: #only works if mapping was done by HRG
                 sequenced_reads=self.mapping_results[self._clean_sample(sample)]
@@ -127,6 +133,7 @@ class ClasssifierReport:
                                 amr_snps, 
                                 sequenced_reads,
                                 sum(mapped_reads), 
+                                wrong_len_reads,
                                 highest_cov, 
                                 lowest_cov ]
             if i % 2 == 0: #Alternate row colours

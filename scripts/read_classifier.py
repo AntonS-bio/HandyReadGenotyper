@@ -115,6 +115,7 @@ class ReadsMatrix:
         self._bam_file: str=bam_file
         self._is_positive: bool=is_positive
         self._read_matrices: Dict[str, np.array]=None
+        self._wrong_len_reads: Dict[str, int]={}
 
     @property
     def bam_file(self) -> str:
@@ -128,6 +129,10 @@ class ReadsMatrix:
     def read_matrices(self) -> np.array:
         return self._read_matrices
     
+    @property
+    def wrong_len_reads(self) -> Dict[str, int]:
+        return self._wrong_len_reads
+    
     def get_read_matrix(self, amplicon_name: str) -> np.array:
         if amplicon_name in self._read_matrices:
             return self._read_matrices[amplicon_name]
@@ -136,6 +141,7 @@ class ReadsMatrix:
 
     def read_bam(self, target_regions: List[Amplicon], full_length_only: bool = True) -> None:
         self._read_matrices:  Dict[str, np.array]={}
+        self._wrong_len_reads:  Dict[str, int]={}
         bam = ps.AlignmentFile(self.bam_file, "rb",check_sq=False)
         for target_amplicon in target_regions:#amplicon_coordinates.index:
             target_start, target_end = [target_amplicon.ref_seq.ref_start, target_amplicon.ref_seq.ref_end]
@@ -143,12 +149,14 @@ class ReadsMatrix:
             alignment_matrix=np.zeros( (bam.count(contig=target_contig, start=target_start, end=target_end), target_end-target_start), dtype=np.int8)
             used_rows=[False]* alignment_matrix.shape[0] #this will allow removal of empty rows when only full length reads are required
             orientation=[]
+            self._wrong_len_reads[target_amplicon.name]=0
             for i,read in enumerate(bam.fetch(contig=target_contig, start=target_start, end=target_end)):
                 if not read.is_unmapped:
                     if read.query_sequence is None:
                         warnings.warn(f'Bam file {self.bam_file} has an empty read aligning to {target_amplicon.name} this should not happen')
                         continue
                     if full_length_only and (read.query_alignment_start>target_start+5 or read.query_alignment_end<target_end-5): #allow 5nt length difference on each side
+                        self._wrong_len_reads[target_amplicon.name]+=1
                         continue #This will skip non-full length queries
                     orientation.append(read.is_forward)
                     query_nt = [ read_ref_pair[0] for read_ref_pair in read.get_aligned_pairs() if not read_ref_pair[1] is None and
@@ -180,6 +188,7 @@ class ClassificationResult:
         self._sample=sample
         self._model_fingerprint=""
         self._model_timestamp=""
+        self._wrong_len_reads: Dict[str, int]={}
 
     def get_consensus(self, data: np.array) -> str:
         most_common=np.apply_along_axis( lambda x: Counter(x).most_common(1)[0][0], axis=0,  arr=data  )
@@ -231,6 +240,10 @@ class ClassificationResult:
     @property
     def predicted_classes(self) -> np.array:
         return self._predicted_classes
+    
+    @property
+    def wrong_len_reads(self) -> Dict[str, int]:
+        return self._wrong_len_reads
     
     @property
     def model_fingerprint(self) -> str:

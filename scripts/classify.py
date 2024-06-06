@@ -7,6 +7,7 @@ from input_processing import InputProcessing
 from model_manager import ModelManager
 from classifier_report import ClasssifierReport
 from map import ReadMapper
+from shutil import which
 
 
 def main():
@@ -41,6 +42,12 @@ def main():
         args = parser.parse_args()
     except:
         parser.print_help()
+        exit(0)
+
+    #check minimap2 is installed
+    
+    if which("minimap2") is None:
+        print(f'Missing minimap2 program. It is available via Bioconda.')
         exit(0)
 
     cpu_to_use=int(args.cpus)
