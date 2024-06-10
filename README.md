@@ -69,11 +69,11 @@ To run classifier you have to main options. First, if you have already mapped FA
 ### I have BAMS files, I already mapped FASTQs to references
 
 ```
-classify -t ./amplicons.bed -r ./amplicons.fna -b ./bams/ -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
+classify -b ./bams/ -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
 ```
 Maps all BAMs in directory ./bams/ while this will only classify sample_1.bam
 ```
-classify -t ./amplicons.bed -r ./amplicons.fna -b ./bams/sample_1.bam -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
+classify -b ./bams/sample_1.bam -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
 ```
 
 
@@ -83,7 +83,7 @@ classify -t ./amplicons.bed -r ./amplicons.fna -b ./bams/sample_1.bam -m model.p
 
 If you don't have bams, you can use "-f" option to map FASTQs using minimap2 to the amplicon reference. The command only differs from above by this extra parameter. Not that "-b" is still present - it will be a directory to which the mapped BAMs will be saved. 
 ```
-classify -t ./amplicons.bed -r ./amplicons.fna -b ./bams/ -f ./fastqs/ -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
+classify -b ./bams/ -f ./fastqs/ -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
 ```
 If you look at structure of test_data/fastqs you will see it's a bit odd. It's very difficult to capture all possible ways the FASTQs will be provided, but the most likely one if a result of single run from ONT devices. When these were multiplexed (most likely use case) ONT device will create a directory for each barcode and will place multiple FASTQ files for this barcode into that directory. It will likely look like this:
 ```
@@ -110,15 +110,12 @@ Normally, you'd need to merge the the files from each barcode before mapping, bu
 Neither the metadata file (-d), nor genotypes hierarchy (-g) are required, but you probably already have them and they substantially enrich the classification report, so it's worth using them. The metadata file can be where you keep track of sequencing results, the genotypes hierarchy file was likely used when your PCR primers were generated. 
 
 ```
-usage: classify -t  -r  -b  -m  -o  [-d] [-c] [--column_separator] [-g] [--cpu] [-h]
+usage: classify -b  -m  -o  [-d] [-c] [--column_separator] [-g] [--cpu] [-h]
 
 Classify reads in BAM file using existing model or train a model from bam files. You will get an error if you use "classify.py" instead of "classify"
 
 options:
   -h, --help            show this help message and exit
-  -t , --target_regions 
-                        Bed file that specifies reference intervals to which reads where mapped
-  -r , --reference      FASTA file with the reference to which reads where mapped
   -b , --bam_files      Directory with, list of, or individual BAM and corresponding BAM index files (.bai)
   -m , --model          Pickle (.pkl) file containing pretrained model. Model must be trained on same reference
   -o , --output_file    Name of HTML file to store classification results
@@ -131,4 +128,17 @@ options:
                         JSON file with genotypes hierarchy
   --cpus                Number of CPUs to use, default=1
 
+```
+## Getting data out of model file
+
+You may have noticed that the "classify" does not require FASTA as input. To avoid excessive inputs the reference sequence is stored in the model file. To access it, you can use genotyper_utilities function. 
+
+For example, to print the reference sequences in file model.pkl you should run 
+
+```
+genotyper_utilities --reference -m model.pkl
+```
+to get the SNPs stored in the model.pkl you should run
+```
+genotyper_utilities --snps -m model.pkl
 ```
