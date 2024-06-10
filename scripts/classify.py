@@ -1,22 +1,39 @@
 import argparse
 from typing import List, Dict
-from os.path import  expanduser
+import pickle
+from os.path import  expanduser, join
+from os import mkdir
 from inputs_validation import ValidateFiles
 from data_classes import Amplicon
 from input_processing import InputProcessing
 from model_manager import ModelManager
 from classifier_report import ClasssifierReport
+from read_classifier import Classifier
 from map import ReadMapper
-from shutil import which
+from shutil import which, rmtree
+import uuid 
+
+def generate_amplicons(model_file: str, fasta_file:str) -> List[Amplicon]:
+    target_regions: List[Amplicon] = []
+    with open(model_file, "rb") as input_model:
+        model_manager: Dict[str, Classifier] =pickle.load(input_model)
+    for name, model in model_manager.items():
+        bed_line=f'{model.name}\t0\t{len(model.nucletoide_seq)}\t{model.name}'
+        target_regions.append(Amplicon.from_bed_line(bed_line, fasta_file))
+    return target_regions
+
+def generate_ref_fasta(model_file: str, ref_file: str) -> None:
+    with open(model_file, "rb") as input_model:
+        model_manager: Dict[str, Classifier] =pickle.load(input_model)
+    with open(ref_file, "w" ) as ref_output:
+        for name, model in model_manager.items():
+            ref_output.write(">"+str(model.name)+"\n")
+            ref_output.write(str(model.nucletoide_seq)+"\n")
 
 
 def main():
 
     parser = argparse.ArgumentParser(description='Classify reads in BAM file using existing model or train a model from bam files')
-    parser.add_argument('-t','--target_regions', metavar='', type=str,
-                        help='Bed file that specifies reference intervals to which reads where mapped', required=True)
-    parser.add_argument('-r','--reference', metavar='', type=str,
-                        help='FASTA file with the reference to which reads where mapped', required=True)
     parser.add_argument('-b','--bams', metavar='', type=str,
                         help='Directory with, list of, or individual BAM and corresponding BAM index files (.bai)', required=True)
     parser.add_argument('-m','--model', metavar='', type=str,
@@ -37,7 +54,8 @@ def main():
     parser.add_argument('-o','--output_file', metavar='', type=str,
                         help='File to store classification results', required=True)
 
-
+    temp_dir=expanduser( join("./",str(uuid.uuid4())) )
+    mkdir(temp_dir)
     try:
         args = parser.parse_args()
     except:
@@ -54,31 +72,40 @@ def main():
 
     input_processing=InputProcessing()
 
-    bed_file, fasta_file, model_file = input_processing.get_ref_bed_model(args)
-    if bed_file=="":
-        exit(0)
+    # bed_file, fasta_file, model_file = input_processing.get_ref_bed_model(args)
+    # if bed_file=="":
+    #     exit(0)
+    model_file = args.model
+
+
+    ####TEST
+    fasta_file = join(temp_dir,"reference.fasta")  
+    generate_ref_fasta(model_file, fasta_file)  
+    generate_amplicons(model_file, fasta_file)
+
 
     file_validator=ValidateFiles()
-    if not file_validator.validate_bed(bed_file):
-        exit(0)
-    if not file_validator.validate_fasta(fasta_file):
-        exit(0)
-    if not file_validator.contigs_in_fasta(bed_file, fasta_file ):
-        exit(0)
+    # if not file_validator.validate_bed(bed_file):
+    #     exit(0)
+    # if not file_validator.validate_fasta(fasta_file):
+    #     exit(0)
+    # if not file_validator.contigs_in_fasta(bed_file, fasta_file ):
+    #     exit(0)
 
     if not args.sample_descriptions is None: #this has to be checked early in case file does not exist
         metadata_file=args.sample_descriptions
         if not input_processing.file_exists(metadata_file):
             exit(0)
 
+
     #Map the raw reads or collect bams to classify
     if not args.fastqs is None:
         if not input_processing.file_exists(args.fastqs):
             exit(0)
         bams_dir=expanduser(args.bams)
-        mapper=ReadMapper("~/HandyReadGenotyper/temp_data",
+        mapper=ReadMapper(temp_dir,
                         args.fastqs,
-                        fasta_file, cpu_to_use)
+                        model_file, fasta_file, cpu_to_use)
         if not mapper.map(bams_dir):
             exit()
         file_to_classify=[f.bam_file for f in mapper.results]
@@ -110,11 +137,7 @@ def main():
         if not input_processing.get_sample_labels(metadata_file,metadata_sep, metadata_column, file_to_classify, sample_labels):
             exit(1)
 
-
-    target_regions: List[Amplicon] = []
-    with open(bed_file) as input_file:
-        for line in input_file:
-            target_regions.append(Amplicon.from_bed_line(line, fasta_file))
+    target_regions: List[Amplicon] = generate_amplicons(model_file, fasta_file)
 
     model_manager=ModelManager(model_file, cpu_to_use)
     results=model_manager.classify_new_data(target_regions, file_to_classify)
@@ -123,6 +146,7 @@ def main():
     else:
         report=ClasssifierReport(output_file, model_file, args.genotypes_hierarchy, sample_labels)
     report.create_report(results)
-
+    rmtree(temp_dir)
+    
 if __name__=="__main__":
     main()

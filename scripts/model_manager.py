@@ -149,7 +149,6 @@ class ModelManager:
         genotype_snp.add_from_vcf(vcf_line)
         self._genotype_snps.append(genotype_snp)
 
-
     def load_genotype_snps(self, vcf_file: str) -> None:
         if not exists(vcf_file):
             raise ValueError(f'VCF file {vcf_file} does not exist, did you specify just file name instead of full address?')

@@ -60,6 +60,22 @@ class GenotypeSNP:
     @property
     def reference_nucl(self) -> str:
         return self._ref_nucl
+    
+    @property
+    def to_string(self) -> str:
+        result = ""
+        for allele, genotype in self.genotypes.items():
+            if result!="":
+                result+="\n"
+            allele_type = ""
+            if genotype==self.UNINFORMATIVE_ALLLE:
+                allele_type=self.UNINFORMATIVE_ALLLE
+            elif self.is_amr:
+                allele_type="AMR"
+            else:
+                allele_type="Genotype"
+            result+="\t".join( [self.contig_id, str(self.position), allele, genotype, allele_type] )
+        return result
 
     def get_genotype(self, allele: str) -> str:
         """Return genotype for give allele value
@@ -155,7 +171,7 @@ class ReadsMatrix:
                     if read.query_sequence is None:
                         warnings.warn(f'Bam file {self.bam_file} has an empty read aligning to {target_amplicon.name} this should not happen')
                         continue
-                    if full_length_only and (read.query_alignment_start>target_start+5 or read.query_alignment_end<target_end-5): #allow 5nt length difference on each side
+                    if full_length_only and (read.query_alignment_start>target_start+15 or read.query_alignment_end<target_end-15): #allow 5nt length difference on each side
                         self._wrong_len_reads[target_amplicon.name]+=1
                         continue #This will skip non-full length queries
                     orientation.append(read.is_forward)
@@ -650,10 +666,10 @@ class Classifier:
         self._testing_samples_misclassfied = value
 
     @property
-    def nucletoide_seq(self) -> float:
+    def nucletoide_seq(self) -> str:
         return self._nucletoide_seq
 
     @nucletoide_seq.setter
-    def nucletoide_seq(self, value: float):
+    def nucletoide_seq(self, value: str):
         self._nucletoide_seq = value
     #endregion

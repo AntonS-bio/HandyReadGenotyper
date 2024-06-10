@@ -5,6 +5,8 @@ from os import  walk,  remove, mkdir
 from os.path import isfile, join,  exists, isdir, expanduser, split
 import uuid
 import pysam as ps
+from read_classifier import Classifier
+import pickle
 
 class MappingResult:
     def __init__(self, bam_file:str) -> None:
@@ -66,14 +68,15 @@ class ReadMapper:
 
     VALID_EXTENSION=["fq", "fastq"]
 
-    def __init__(self, temp_dir:str, source: str, reference: str, cpus:int) -> None:
+    def __init__(self, temp_dir:str, source: str, model_file: str, ref_fasta: str, cpus:int) -> None:
         self._source=expanduser(source)
         self.temp_dir=expanduser(temp_dir)
         if not exists(self.temp_dir):
             mkdir(self.temp_dir)
-        self.reference=expanduser(reference)
-        if not exists(self.reference):
-            raise IOError(f'Reference file {self.reference} not found. Please check spelling')
+        self.model_file=expanduser(model_file)
+        self.reference=ref_fasta
+        if not exists(self.model_file):
+            raise IOError(f'Model file {self.model_file} not found. Please check spelling')
         self._barcode_files: Dict[str, List[str]] = {}
         self.results: List[MappingResult] = []
         self._cpus=cpus
@@ -163,11 +166,4 @@ class ReadMapper:
             remove(merged_file)
         return True
 
-# if __name__=="__main__":
-#     # mapper=ReadMapper("~/HandyReadGenotyper/temp_data",
-#     #                   "~/HandyReadGenotyper/Old_InputData/fastqs/Run14_Paratyphi_A",
-#     #                   "~/HandyReadGenotyper/typhi_data_v3/amplicons.fna")
-#     mapper=ReadMapper("~/HandyReadGenotyper/temp_data",
-#                       "~/HandyReadGenotyper/Old_InputData/fastqs/Run14_Paratyphi_A/barcode67/FAZ05669_pass_barcode67_53e96807_56ab2ac9_0.fastq.gz",
-#                       "~/HandyReadGenotyper/typhi_data_v3/amplicons.fna")
-   
+
