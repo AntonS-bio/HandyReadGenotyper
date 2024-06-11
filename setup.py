@@ -4,7 +4,7 @@ from setuptools.command.install import install
 import os
 import sys
 
-__version__ = '0.1.16'
+__version__ = '0.1.17'
 
 def readme():
     with open('README.md') as f:
@@ -39,7 +39,7 @@ setup(name='HandyReadGenotyper',
       author_email='',
       packages=['scripts'],
       include_package_data=True,
-      entry_points={'console_scripts': ['classify = classify', 'train = train:main', 'genotyper_utilities = genotyper_utilities:main']},
+      entry_points={'console_scripts': ['classify = classify:main', 'train = train:main', 'genotyper_utilities = genotyper_utilities:main']},
       scripts=[
           'scripts/classify.py',
           'scripts/data_classes.py',
@@ -51,6 +51,7 @@ setup(name='HandyReadGenotyper',
           'scripts/train.py',
           'scripts/classifier_report.py',
           'scripts/map.py',
+          'scripts/genotyper_utilities.py',
           'scripts/html_head.txt'
       ],
       cmdclass={'install': HandyReadGenotyperInstall}

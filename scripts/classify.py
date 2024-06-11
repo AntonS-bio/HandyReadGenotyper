@@ -30,7 +30,7 @@ def generate_ref_fasta(model_file: str, ref_file: str) -> None:
             ref_output.write(">"+str(model.name)+"\n")
             ref_output.write(str(model.nucletoide_seq)+"\n")
 
-def main(temp_dir):
+def classify(temp_dir):
 
     parser = argparse.ArgumentParser(description='Classify reads in BAM file using existing model or train a model from bam files')
     parser.add_argument('-f','--fastqs', metavar='', type=str,
@@ -122,11 +122,13 @@ def main(temp_dir):
     report.create_report(results)
     rmtree(temp_dir)
     
-
-if __name__=="__main__":
+def main():
     temp_dir=expanduser( join("./",str(uuid.uuid4())) )
     try:
-        main(temp_dir)
+        classify(temp_dir)
     except:
         if exists(temp_dir):
             rmtree(temp_dir)
+
+if __name__=="__main__":
+    main()
