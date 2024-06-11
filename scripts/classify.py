@@ -51,7 +51,7 @@ def classify(temp_dir):
                         help='Directory for output files', required=False, default=1)
     parser.add_argument('-o','--output_file', metavar='', type=str,
                         help='File to store classification results', required=True)
-    parser.add_argument('--version', action='version', version='%(prog)s 0.1.15')
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s 0.1.18')
 
     mkdir(temp_dir)
     try:
@@ -126,7 +126,8 @@ def main():
     temp_dir=expanduser( join("./",str(uuid.uuid4())) )
     try:
         classify(temp_dir)
-    except:
+    except Exception as e:
+        print(e)
         if exists(temp_dir):
             rmtree(temp_dir)
 
