@@ -122,6 +122,7 @@ def main(temp_dir):
     report.create_report(results)
     rmtree(temp_dir)
     
+
 if __name__=="__main__":
     temp_dir=expanduser( join("./",str(uuid.uuid4())) )
     try:
