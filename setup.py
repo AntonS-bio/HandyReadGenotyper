@@ -4,7 +4,7 @@ from setuptools.command.install import install
 import os
 import sys
 
-__version__ = '0.1.14'
+__version__ = '0.1.15'
 
 def readme():
     with open('README.md') as f:
@@ -50,7 +50,8 @@ setup(name='HandyReadGenotyper',
           'scripts/read_classifier.py',
           'scripts/train.py',
           'scripts/classifier_report.py',
-          'scripts/map.py'
+          'scripts/map.py',
+          'scripts/html_head.txt'
       ],
       cmdclass={'install': HandyReadGenotyperInstall}
 )
