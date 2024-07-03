@@ -2,7 +2,7 @@
 Tool for genotyping Oxford Nanopore amplicon sequencing data
 
 ## Purpose
-This tool is intended to be used with a partner HandyAmpliconTool which helps to design primers for environmental surveilance. The partner tools designs primers for specific genotypes (based on SNPs unique to those genotypes) while minimising risk of amplyfing other DNA that might be present in the environment.
+This tool is intended to be used with a partner HandyAmpliconTool which helps to design primers for environmental surveillance. The partner tools designs primers for specific genotypes (based on SNPs unique to those genotypes) while minimising risk of amplyfing other DNA that might be present in the environment.
 
 This tool, HandyReadGenotyper, has two modes: 
     1. Train a classification model using existing Nanopore data - this can be your own data, data from genomic repositories (ENA, NCBI, DDBJ) or a mix of these
