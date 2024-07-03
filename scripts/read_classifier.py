@@ -2,6 +2,8 @@ from collections import Counter
 from os.path import exists
 import warnings
 from typing import Dict, List, Tuple
+import uuid
+from datetime import datetime
 from sklearn.ensemble import VotingClassifier
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import confusion_matrix
@@ -10,10 +12,6 @@ from sklearn.linear_model import SGDClassifier
 import numpy as np
 import pysam as ps
 from data_classes import Amplicon
-import uuid
-from datetime import datetime
-
-
 
 base_dic={"A":1,"C":2,"G":3,"T":4,"N":5,"-":0}
 number_dic=dict([ (value, key) for key,value in base_dic.items() ])
@@ -124,6 +122,9 @@ class GenotypeSNP:
         return contig==self.contig_id and int(position)==self.position
 
 class ReadsMatrix:
+    permitted_read_soft_clip = 0
+    permitted_mapped_sequence_len_mismatch = 0
+    train_mode=False #represents model training mode, the length requirement is relaxed.
     def __init__(self, bam_file: str, is_positive: bool) -> None:
         bam_file=bam_file
         if not exists(bam_file):
@@ -132,6 +133,7 @@ class ReadsMatrix:
         self._is_positive: bool=is_positive
         self._read_matrices: Dict[str, np.array]=None
         self._wrong_len_reads: Dict[str, int]={}
+        self._read_ids: Dict[str, List[str]]={}
 
     @property
     def bam_file(self) -> str:
@@ -149,6 +151,10 @@ class ReadsMatrix:
     def wrong_len_reads(self) -> Dict[str, int]:
         return self._wrong_len_reads
     
+    @property
+    def read_ids(self) -> Dict[str, List[str]]:
+        return self._read_ids
+    
     def get_read_matrix(self, amplicon_name: str) -> np.array:
         if amplicon_name in self._read_matrices:
             return self._read_matrices[amplicon_name]
@@ -164,6 +170,7 @@ class ReadsMatrix:
             target_contig=target_amplicon.ref_seq.refseq_id
             alignment_matrix=np.zeros( (bam.count(contig=target_contig, start=target_start, end=target_end), target_end-target_start), dtype=np.int8)
             used_rows=[False]* alignment_matrix.shape[0] #this will allow removal of empty rows when only full length reads are required
+            read_ids=[""]* alignment_matrix.shape[0]
             orientation=[]
             self._wrong_len_reads[target_amplicon.name]=0
             for i,read in enumerate(bam.fetch(contig=target_contig, start=target_start, end=target_end)):
@@ -171,7 +178,18 @@ class ReadsMatrix:
                     if read.query_sequence is None:
                         warnings.warn(f'Bam file {self.bam_file} has an empty read aligning to {target_amplicon.name} this should not happen')
                         continue
-                    if full_length_only and (read.query_alignment_start>target_start+15 or read.query_alignment_end<target_end-15): #allow 5nt length difference on each side
+                    #allows for soft clippping on both sides (first line), reads shorter than target (second line), reads longer than target (third line)
+                    if ReadsMatrix.train_mode and (read.get_aligned_pairs(matches_only=True)[-1][0] < target_end - 10 \
+                                                   or read.get_aligned_pairs(matches_only=True)[0][0] > 10) :
+                        #read too short
+                        self._wrong_len_reads[target_amplicon.name]+=1
+                        continue
+                    if not ReadsMatrix.train_mode and full_length_only and not (\
+                            read.query_alignment_start < ReadsMatrix.permitted_read_soft_clip \
+                            and (read.query_length-read.query_alignment_end) < ReadsMatrix.permitted_read_soft_clip \
+                            and (read.query_alignment_end - read.query_alignment_start) < (target_end - target_start) + ReadsMatrix.permitted_mapped_sequence_len_mismatch \
+                            and (read.query_alignment_end - read.query_alignment_start) > (target_end - target_start) - ReadsMatrix.permitted_mapped_sequence_len_mismatch
+                            ) :
                         self._wrong_len_reads[target_amplicon.name]+=1
                         continue #This will skip non-full length queries
                     orientation.append(read.is_forward)
@@ -185,8 +203,10 @@ class ReadsMatrix:
                         break
 
                     alignment_matrix[i, ref_nt]=[ base_dic[read.query_sequence[f]] for f in query_nt]
-                    used_rows[i]=True
+                    used_rows[i] = True
+                    read_ids[i] = read.query_name
 
+            self._read_ids[target_amplicon.name]=[ z for f, z in zip(used_rows, read_ids) if f ]
             self._read_matrices[target_amplicon.name]=alignment_matrix[used_rows]
 
 class ClassificationResult:
@@ -205,6 +225,7 @@ class ClassificationResult:
         self._model_fingerprint=""
         self._model_timestamp=""
         self._wrong_len_reads: Dict[str, int]={}
+        self._read_ids: List[str] = []
 
     def get_consensus(self, data: np.array) -> str:
         most_common=np.apply_along_axis( lambda x: Counter(x).most_common(1)[0][0], axis=0,  arr=data  )
@@ -257,6 +278,18 @@ class ClassificationResult:
     def predicted_classes(self) -> np.array:
         return self._predicted_classes
     
+    @property
+    def positive_read_ids(self) -> List[str]:
+        return [f for f,z in zip(self.read_ids, self.predicted_classes) if z == 1]
+
+    @property
+    def read_ids(self) -> List[str]:
+        return self._read_ids
+
+    @read_ids.setter
+    def read_ids(self, value: List[str]):
+        self._read_ids = value
+
     @property
     def wrong_len_reads(self) -> Dict[str, int]:
         return self._wrong_len_reads
@@ -456,22 +489,6 @@ class Classifier:
         return reads_train, true_class_train,  reads_test, true_class_test
 
 
-    def test_function(self, positive_matrix, negative_matrix, positive_n_train, negative_n_train, positive_n_test, negative_n_test, negative_bams):
-        positive_train, positive_test, positive_test_samples = self._generate_train_test_sets(positive_matrix,positive_n_train, positive_n_test)
-        negative_train, negative_test, negative_test_samples = self._generate_train_test_sets(negative_matrix,negative_n_train, negative_n_test)
-        #test is the quality of differentiation between reads based on the typhi specific alleles
-
-        reads_train = np.vstack( ( positive_train , negative_train ) )
-        reads_test = np.vstack( ( positive_test , negative_test ) )
-        true_class_train=[1]*positive_train.shape[0] +[0]*negative_train.shape[0]
-        true_class_test=[1]*positive_test.shape[0] +[0]*negative_test.shape[0]
-
-        self.test_samples_ids=["Positive"] * positive_n_test
-        self.test_samples_ids=self.test_samples_ids+[f[0] for f in negative_bams[negative_test_samples] ] #for debugging
-       
-        return reads_train, true_class_train,  reads_test, true_class_test
-
-
     def train_classifier(self, positive_data, negative_data, variable_columns, negative_data_bams) -> None:
         """Splits a reads matrix into train and test sets of required sizes
 
@@ -500,11 +517,14 @@ class Classifier:
             return
         else:
             self.not_trained=False
+            print("Generating training")
             train_data, train_true,  test_data, test_true = self.generate_test_train_sets(positive_data[:,used_columns], negative_data[:,used_columns],
                                                                                                             min(int(positive_data.shape[0]*0.8), 5000),
                                                                                                             min(int(negative_data.shape[0]*0.8), 5000),
                                                                                                             min(int(positive_data.shape[0]*0.2), 5000),
                                                                                                             min(int(negative_data.shape[0]*0.2), 5000), negative_data_bams )
+            del positive_data
+            del negative_data
             self._train_with_negative(train_data, train_true)
 
             

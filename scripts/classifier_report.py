@@ -5,6 +5,7 @@ from os.path import expanduser
 from pathlib import Path
 from datetime import datetime
 import json
+from collections import Counter
 from map import MappingResult
 
 OPENER='<tr><td>'
@@ -40,7 +41,7 @@ class ClasssifierReport:
     def _write_main_header(self, file_handle):
         file_handle.write("<table>\n")
         file_handle.write("\t<tbody>\n")
-        header_values=["Sample","Has Target Organism*", "Implied Genotypes","Implied AMR", "Sequencing Reads","Mapped, correct length", "Mapped, but too short/long"," Highest read count","Lowest read count"]
+        header_values=["Sample","Has Target Organism*", "Implied Genotypes","Implied AMR", "Consensus SNPs Frequency", "Sequencing Reads","Mapped, correct length", "Mapped, but too short/long"," Highest read count","Lowest read count"]
         header_line=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER
         file_handle.write("\t"+header_line)
         file_handle.write("\n")
@@ -81,9 +82,13 @@ class ClasssifierReport:
             sample_cell_value=sample_cell_value+"<br>"+self.sample_labels[self._clean_sample(sample)]
         return sample_cell_value
 
+    def get_most_recent_model_element(self):
+        models_list=sorted(set([(f.model_timestamp) for f in self.results]))
+        return models_list[-1].strftime("%d/%b/%y")
+
     ####START Write main summary table
     def _write_summary(self):
-        self.output_file.write('<div class=header_line><a name="Summary">Summary of results</div>\n')
+        self.output_file.write('<div class=header_line><a name="Summary">Summary of results, model date: '+self.get_most_recent_model_element()+'</div>\n')
         self._insert_paragraph(1)
 
         self._write_main_header(self.output_file)
@@ -95,10 +100,15 @@ class ClasssifierReport:
 
         self.sample_gts: Dict[str, List[str]]={}
         self.empty_samples=set()
+        add_read_length_flag=False
         for i, sample in enumerate(self.samples):
             sample_results=self._get_sample_results(sample,self.results)
             mapped_reads=[f.positive_cases+f.negative_cases for f in sample_results]
             wrong_len_reads=sum([f.wrong_len_reads[f.amplicon.name] for f in sample_results])
+            total_mapped_reads=sum(mapped_reads)
+            if total_mapped_reads>0 and wrong_len_reads/total_mapped_reads > 3:
+                total_mapped_reads=str(total_mapped_reads)+"^"
+                add_read_length_flag=True
             highest_cov = sample_results[ mapped_reads.index(max(mapped_reads)) ]
             highest_cov=f'{len(highest_cov.predicted_classes)}<br>({highest_cov.amplicon.name})'
             lowest_cov=sample_results[ mapped_reads.index(min(mapped_reads)) ]
@@ -107,6 +117,7 @@ class ClasssifierReport:
             has_target_org="No"
             amr_snps=""
             gts=""
+            sample_snp_diagram=self.snp_frequency_diagram(sample)
             if len([f.positive_cases for f in sample_results if f.positive_cases>POSITIVE_CASES_THRESHOLD])>len(sample_results)*POSITIVE_AMPLICONS_THRESHOLD:
                 has_target_org="Yes"
             else:
@@ -127,24 +138,29 @@ class ClasssifierReport:
                 sequenced_reads=self.mapping_results[self._clean_sample(sample)]
             else:
                 sequenced_reads="Unavailable"
-            sample_line_values=['<a href="#'+self._clean_sample(sample)+'">'+sample_cell_value+"</a>", 
-                                has_target_org, 
-                                gts, 
-                                amr_snps, 
+            sample_line_values=['<a href="#'+self._clean_sample(sample)+'">'+sample_cell_value+"</a>",
+                                has_target_org,
+                                gts,
+                                amr_snps,
+                                "<td class=diagram>"+sample_snp_diagram,
                                 sequenced_reads,
-                                sum(mapped_reads), 
+                                total_mapped_reads,
                                 wrong_len_reads,
-                                highest_cov, 
+                                highest_cov,
                                 lowest_cov ]
             if i % 2 == 0: #Alternate row colours
                 table_line=OPENER_ALT+MIDDLE.join([str(f) for f in sample_line_values])+CLOSER
             else:
                 table_line=OPENER+MIDDLE.join([str(f) for f in sample_line_values])+CLOSER
+            #this is a hack to accomodate special formatting for snp frequency diagram cell
+            table_line=table_line.replace("<td><td class=diagram>","<td class=diagram>")
             self.output_file.write("\t\t"+table_line+"\n")
 
         self.output_file.write("\t</tbody>\n")
         self.output_file.write("</table>\n")
-        self.output_file.write(f'<p>*Defined as at least {POSITIVE_AMPLICONS_THRESHOLD*100}% of amplicons having at least {POSITIVE_CASES_THRESHOLD} target organism reads</p>')
+        self.output_file.write(f'<p>* Defined as at least {POSITIVE_AMPLICONS_THRESHOLD*100}% of amplicons having at least {POSITIVE_CASES_THRESHOLD} target organism reads</p>')
+        if add_read_length_flag:
+            self.output_file.write(f'<p>^ The number of reads either longer or shorter than amplicon is >3x higher than reads that match amplicon length. If this is unexpected, consider using options "-s" or "-l". </p>')
         self.output_file.write('<p>Report generated on '+datetime.now().strftime("%d/%b/%y at %H:%M")+'. <a href="#ModelSignatures">See models list</a></p>')
 
         self._insert_paragraph( 2)
@@ -183,7 +199,7 @@ class ClasssifierReport:
             self.output_file.write("<table>\n")
             self.output_file.write("\t<tbody>\n")
 
-            header_values=["Amplicon","Tot. Reads", "% Target Org.","SNPs", "Implied Genotypes", "Implied AMR","Unknown SNPs"]
+            header_values=["Amplicon","Tot. Reads", "% Target Org.", "# Target Org.","SNPs", "Implied Genotypes", "Implied AMR","Unknown SNPs"]
             table_header=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER
             self.output_file.write("\t"+table_header+"\n")
             sample_results=self._get_sample_results(sample,self.results)
@@ -196,16 +212,17 @@ class ClasssifierReport:
                 amplicon_result: ClassificationResult = amplicon_results[0]
                 first_cell='<a href="#'+self._clean_sample(sample)+'_'+amplicon_name+'_consensus"/>'+amplicon_name
                 if len(amplicon_result.predicted_classes)<=POSITIVE_CASES_THRESHOLD:
-                    row_values=[first_cell,"*", "-","-", "-","-", "-"]
+                    row_values=[first_cell,"*", "-","-","-", "-","-", "-"]
                 else:
                     tot_reads=len(amplicon_result.predicted_classes)
-                    target_org_reads='{0:.1%}'.format(amplicon_result.positive_cases/tot_reads)+untrained_suffix
+                    target_org_reads_share='{0:.1%}'.format(amplicon_result.positive_cases/tot_reads)+untrained_suffix
+                    target_org_reads_count=str(amplicon_result.positive_cases)+untrained_suffix
                     snp_num=amplicon_result.num_mismatches
                     unknown_snps=amplicon_result.num_unknown_snps(self.trained_models[amplicon_name].genotype_snps)
                     known_snps=[f for f in amplicon_result.calculate_genotype(self.trained_models[amplicon_name].genotype_snps)]
                     known_gts=known_snps[0] if known_snps[1] is False else ""
                     known_amrs=known_snps[0] if known_snps[1] is True else ""
-                    row_values=[first_cell + untrained_suffix, tot_reads,target_org_reads,snp_num, known_gts, known_amrs,unknown_snps]
+                    row_values=[first_cell + untrained_suffix, tot_reads,target_org_reads_share,target_org_reads_count,snp_num, known_gts, known_amrs,unknown_snps]
                 if i % 2 == 0: #Alternate row colours
                     table_row=OPENER_ALT+MIDDLE.join([str(f) for f in row_values])+CLOSER
                 else:
@@ -254,6 +271,29 @@ class ClasssifierReport:
         self.output_file.write("</div>\n")
         self._insert_paragraph( 1)
     ####END write genotypes support tables
+
+    def snp_frequency_diagram(self, sample: str):
+        HTML_SPACE = "&nbsp;"
+        amplicon_names=sorted(list(set([f.amplicon.name for f in self.results])))
+        sample_results=self._get_sample_results(sample,self.results)
+        unknown_snps=[]
+        for i, amplicon_name in enumerate(amplicon_names):
+            amplicon_results=[f for f in sample_results if f.amplicon.name==amplicon_name]
+            if len(amplicon_results)==0:
+                raise ValueError(f'Amplicon {amplicon_name} is missing for sample {sample}')
+            amplicon_result: ClassificationResult = amplicon_results[0]
+            if amplicon_result.positive_cases>POSITIVE_CASES_THRESHOLD:
+                unknown_snps.append(amplicon_result.num_unknown_snps(self.trained_models[amplicon_name].genotype_snps))
+        unknown_snps=Counter(unknown_snps)
+        diagram="<br/><br/>"+"0"+HTML_SPACE+HTML_SPACE+"3"+HTML_SPACE+">5"
+        for y in range(1, 6):
+            new_line=""
+            for x in range(0, 6):
+                new_line+="-" if x in unknown_snps and unknown_snps[x]>=y else HTML_SPACE
+            over_fives=sum ([value for key, value in unknown_snps.items() if key>5] )
+            new_line+="-" if over_fives>=y else HTML_SPACE
+            diagram=new_line+"<br/>"+diagram
+        return diagram
 
     def _write_consensus_sequences(self):
         self._insert_paragraph(1)

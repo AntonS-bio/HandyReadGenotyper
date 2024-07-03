@@ -14,7 +14,11 @@
 	table, th, td {
 		border: 1px solid black;
 	}
-		
+	.diagram {
+		line-height: 0.2;
+		font-family: Courier;
+		letter-spacing: 0px;
+	}		
 	td {
 	  max-width:250px;
 	  text-align: center;

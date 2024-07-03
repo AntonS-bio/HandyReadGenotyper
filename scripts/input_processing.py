@@ -83,7 +83,7 @@ class InputProcessing:
         if not exists(dir_name):
             mkdir(dir_name)
         else:
-            print(f'Directory {dir_name} already exists.')
+            #print(f'Directory {dir_name} already exists.')
             return False
         return True
     
@@ -96,7 +96,7 @@ class InputProcessing:
         else:
             if not exists(dir):
                 print(f'File {address} requires directory {dir} which does not exist. Please create and try again.')
-                exit(0)
+                raise ValueError()
             else:
                 return full_address
             
@@ -104,14 +104,14 @@ class InputProcessing:
     def check_metadata(self, args, metadata_file: str) -> Tuple[str, str]:
         if args.description_column is None and not args.sample_descriptions is None:
             print("Description file was provided (-d), but the column to use was not (-c)")        
-            exit(0)
+            raise ValueError()
         if not args.description_column is None and args.sample_descriptions is None:
             print("Description column was provided (-c), but the file was not (-d)")
-            exit(0)
+            raise ValueError()
         elif not args.description_column is None and not args.sample_descriptions is None:
             metadata_column = args.description_column
             metadata_sep = args.column_separator
 
             if not self.check_column_in_descriptions(metadata_file,metadata_column, metadata_sep):
-                exit(0)
+                raise ValueError()
             return (metadata_column, args.column_separator)

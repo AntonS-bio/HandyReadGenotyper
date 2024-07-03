@@ -47,6 +47,7 @@ class ModelManager:
         self._target_regions.clear()
         self._target_regions=[f for f in target_regions]
         self._matrices_file=matrices_output_file
+        ReadsMatrix.train_mode=True
         postive_matrix=self._bams_to_matrix(positive_bams)
         negative_matrix=self._bams_to_matrix(negative_bams)
         with open(matrices_output_file, "wb") as output:
@@ -193,6 +194,8 @@ class ModelManager:
             columns_to_exclude=self._check_bam_vcf_consistency(positive_data, target.ref_contig)
 
             classifier.train_classifier(positive_data, negative_data, columns_to_exclude, negative_data_bams)
+            del positive_data
+            del negative_data
             self.trained_models[target.name]=classifier
         #Training is finished, clear the data
         del raw_data
@@ -278,19 +281,20 @@ class ModelManager:
         with open(self._model_output_file, "rb") as model_file:
             self.trained_models=pickle.load(model_file)
 
-        print("Loading file: "+bam_file)
+        #print("Loading file: "+bam_file)
         reads_data: ReadsMatrix=self._process_bams(bam_file)
-        print("Classifying data: "+bam_file)
+        #print("Classifying data: "+bam_file)
 
         results: List[ClassificationResult] = []
         for amplicon in self._target_regions:
-            reads=reads_data.read_matrices[amplicon.name] 
+            reads=reads_data.read_matrices[amplicon.name]
 
             if amplicon.name not in self.trained_models:
                 raise ValueError(f'No models available for amplicon {amplicon.name}')
             
             relevant_model = self.trained_models[amplicon.name]
             classification: ClassificationResult=ClassificationResult(amplicon, bam_file)
+            classification.read_ids = reads_data.read_ids[amplicon.name]
             classification.predicted_classes=relevant_model.classify_new(reads)
             classification.model_fingerprint=relevant_model.uuid()
             classification.model_timestamp=relevant_model.training_timestamp()

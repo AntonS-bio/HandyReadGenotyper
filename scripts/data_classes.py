@@ -775,7 +775,7 @@ class Genotypes:
             if not exists(config_file):
                 raise IOError(f'Config file {config_file} does not exist') from error
             else:
-                raise IOError(f'Error loading file {config_file}. It exits, but cannot be processed.') from error
+                raise IOError(f'Error loading file {config_file}. It exists, but cannot be processed.') from error
         
     @property
     def config_data(self) -> Dict:
