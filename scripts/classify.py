@@ -58,7 +58,7 @@ def classify(temp_dir):
     
     
     
-    # parser.add_argument('-v', '--version', action='version', version='%(prog)s 0.1.18')
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s 0.1.20')
 
     try:
         args = parser.parse_args()
