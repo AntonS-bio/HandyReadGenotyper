@@ -15,13 +15,12 @@ CLOSER='</td></tr>'
 MIDDLE='</td><td>'
 MIDDLE_WIDE='</td class=td_alt_wide><td>'
 POSITIVE_CASES_THRESHOLD=10
-POSITIVE_AMPLICONS_THRESHOLD=0.2
-
-
 
 class ClasssifierReport:
 
-    def __init__(self, output_file: str, models_file: str, genotypes_file, sample_labels:Dict[str, str]={}, mapping_results: List[MappingResult]=[]) -> None:
+    def __init__(self, output_file: str, models_file: str, positive_cases_threshold: float, genotypes_file,  sample_labels:Dict[str, str]={}, 
+                 mapping_results: List[MappingResult]=[]) -> None:
+        self._positive_amplicons_threshold = positive_cases_threshold/100
         self._model_file=models_file
         self.output_file=open( expanduser(output_file), "w" )
         self.genotypes={}
@@ -116,12 +115,15 @@ class ClasssifierReport:
             highest_cov=f'{len(highest_cov.predicted_classes)}<br>({highest_cov.amplicon.name})'
             lowest_cov=sample_results[ mapped_reads.index(min(mapped_reads)) ]
             lowest_cov=f'{len(lowest_cov.predicted_classes)}<br>({lowest_cov.amplicon.name})'
-            #threshold settings: POSITIVE_AMPLICONS_THRESHOLD% of amplicons must have >POSITIVE_CASES_THRESHOLD target reads
+            #threshold settings: positive_amplicons_threshold% of amplicons must have >POSITIVE_CASES_THRESHOLD target reads
             has_target_org="No"
             amr_snps=""
             gts=""
             sample_snp_diagram=self.snp_frequency_diagram(sample)
-            if len([f.positive_cases for f in sample_results if f.positive_cases>POSITIVE_CASES_THRESHOLD])>len(sample_results)*POSITIVE_AMPLICONS_THRESHOLD:
+            #check if the number of non-transient amplicons with sufficient number of reads is above the presence threshold
+            non_transient_amplicons=sum([1 for f in sample_results if not self.trained_models[f.amplicon.name].amplicon_transient])
+            non_transient_with_reads=sum( [f.positive_cases for f in sample_results if f.positive_cases>POSITIVE_CASES_THRESHOLD and not self.trained_models[f.amplicon.name].amplicon_transient] )
+            if non_transient_with_reads>non_transient_amplicons*self._positive_amplicons_threshold:
                 has_target_org="Yes"
             else:
                 self.empty_samples.add(self._clean_sample(sample))
@@ -161,7 +163,7 @@ class ClasssifierReport:
 
         self.output_file.write("\t</tbody>\n")
         self.output_file.write("</table>\n")
-        self.output_file.write(f'<p>* Defined as at least {POSITIVE_AMPLICONS_THRESHOLD*100}% of amplicons having at least {POSITIVE_CASES_THRESHOLD} target organism reads</p>')
+        self.output_file.write(f'<p>* Defined as at least {self._positive_amplicons_threshold*100}% of amplicons that <b>should always be present</b> having at least {POSITIVE_CASES_THRESHOLD} target organism reads</p>')
         if add_read_length_flag:
             self.output_file.write(f'<p>^ The number of reads either longer or shorter than amplicon is >3x higher than reads that match amplicon length. If this is unexpected, consider using options "-s" or "-l". </p>')
         self.output_file.write('<p>Report generated on '+datetime.now().strftime("%d/%b/%y at %H:%M")+'. <a href="#ModelSignatures">See models list</a></p>')

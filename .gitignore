@@ -11,8 +11,8 @@ wo_paratyphi/
 all_amplicons/
 extra_*
 Odd_*
+old*
 temp*
-para*
 map_fastq.sh
 murium.tsv
 DELETE*

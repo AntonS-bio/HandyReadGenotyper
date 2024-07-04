@@ -53,6 +53,9 @@ def classify(temp_dir):
                         help='Specifies maximum permitted soft-clip (length of read before first and last mapped bases) of mapped read', required=False, default=25)
     parser.add_argument('-l', '--max_read_len_diff', type=int,
                         help='Specifies maximum nucleotide difference between mapped portion of read and target amplicon', required=False, default=10)
+    parser.add_argument('--organism_presence_cutoff', type=float,
+                        help='Sample is reported as having target organism if at least this % of non-transient amplicons have >10 reads. Values 0-100.', required=False, default=20.0)
+    
     
     
     # parser.add_argument('-v', '--version', action='version', version='%(prog)s 0.1.18')
@@ -64,6 +67,10 @@ def classify(temp_dir):
         return
 
     mkdir(temp_dir)
+
+    if args.organism_presence_cutoff<1 and args.organism_presence_cutoff!=0:
+        print(f'Option "organism_presence_cutoff" has value {args.organism_presence_cutoff} which is below 1, but not 0. Valid values are 0 to 100.')
+        return
 
     ReadsMatrix.permitted_read_soft_clip=int(args.max_soft_clip)
     ReadsMatrix.permitted_mapped_sequence_len_mismatch=int(args.max_read_len_diff)
@@ -125,16 +132,16 @@ def classify(temp_dir):
     model_manager=ModelManager(model_file, cpu_to_use)
     results=model_manager.classify_new_data(target_regions, file_to_classify)
 
-    # with open(expanduser("/home/lshas17/HandyReadGenotyper/temp/read_ids.tsv"),"w") as output:
+    # with open(expanduser("~/HandyReadGenotyper/temp/read_ids.tsv"),"w") as output:
     #     output.write("File\tAmplicon\tID\n")
     #     for result in results:
     #         for read_id in result.positive_read_ids:
     #             output.write(result.sample+"\t"+result.amplicon.name+"\t"+read_id+"\n")
 
     if not args.fastqs is None:
-        report=ClasssifierReport(output_file, model_file, args.genotypes_hierarchy, sample_labels, mapping_results=mapper.results)
+        report=ClasssifierReport(output_file, model_file, args.organism_presence_cutoff, args.genotypes_hierarchy, sample_labels, mapping_results=mapper.results)
     else:
-        report=ClasssifierReport(output_file, model_file, args.genotypes_hierarchy, sample_labels)
+        report=ClasssifierReport(output_file, model_file, args.organism_presence_cutoff, args.genotypes_hierarchy, sample_labels)
     report.create_report(results)
     rmtree(temp_dir)
     

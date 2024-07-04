@@ -395,6 +395,7 @@ class Classifier:
         self._genotype_snps: List[GenotypeSNP]=genotype_snps
         self._not_trained=False
         self._model=None
+        self._amplicon_transient=False # Transient amplicons are not counted towards 20%
         self._variable_columns:List[int]=[]
         self._uuid=str(uuid.uuid4())
         self._training_timestamp=datetime.now()
@@ -487,7 +488,6 @@ class Classifier:
         self.test_samples_ids=self.test_samples_ids+[f[0] for f in negative_bams[negative_test_samples] ] #for debugging
        
         return reads_train, true_class_train,  reads_test, true_class_test
-
 
     def train_classifier(self, positive_data, negative_data, variable_columns, negative_data_bams) -> None:
         """Splits a reads matrix into train and test sets of required sizes
@@ -621,6 +621,10 @@ class Classifier:
         return predictions
 
     #region Properties
+    @property
+    def amplicon_transient(self):
+        return self._amplicon_transient
+
     @property
     def model(self):
         return self._model
