@@ -1,7 +1,7 @@
 import pickle
 from typing import List, Dict
 from read_classifier import ClassificationResult, Classifier
-from os.path import expanduser
+from os.path import expanduser, basename
 from pathlib import Path
 from datetime import datetime
 import json
@@ -22,6 +22,7 @@ POSITIVE_AMPLICONS_THRESHOLD=0.2
 class ClasssifierReport:
 
     def __init__(self, output_file: str, models_file: str, genotypes_file, sample_labels:Dict[str, str]={}, mapping_results: List[MappingResult]=[]) -> None:
+        self._model_file=models_file
         self.output_file=open( expanduser(output_file), "w" )
         self.genotypes={}
         if not genotypes_file is None:
@@ -88,7 +89,9 @@ class ClasssifierReport:
 
     ####START Write main summary table
     def _write_summary(self):
-        self.output_file.write('<div class=header_line><a name="Summary">Summary of results, model date: '+self.get_most_recent_model_element()+'</div>\n')
+        self.output_file.write('<div class=header_line><a name="Summary">Summary of results</div>\n')
+        self.output_file.write('<div>Model name: '+basename(self._model_file).replace(".pkl","")+
+                                ', model date: '+self.get_most_recent_model_element()+'</div>\n')
         self._insert_paragraph(1)
 
         self._write_main_header(self.output_file)
