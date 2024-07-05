@@ -32,7 +32,7 @@ but this is not recommended.
 
 
 ## Model training
-If you have been given a model pickle file - you don't have to do this, so go to Read Classification section. If you haven't been given one, ask if anyone on your project already has it - chances are bioinformatician does.
+If you have been given a model pickle file - you don't have to do this, so go to Read Classification section. If you haven't been given one, ask if anyone on your project already has it - chances are bioinformatician does. There are some models in this repository in "models" directory. These are versioned and maintained. You need to be sure you are using the right model for you set of amplicons.
 
 The idea of training is that to distinguish target and non-target organism, HandyReadGenotyper needs to see a lot of examples of amplicon sequencing data from both. The examples of target organisms should be fairly easy to find - your own sequencing data should work. For non-target organism, you probably won't be able to generate sufficient data yourself, so you have to rely on public data. SRA database at NCBI is a good source. I recommend finding taxa for your target organism/serovar/strain and taking all available ONT sequencing data within two-three taxonomic layers above. For example, if you are looking at Salmonella, you may decide to take all ONT data from all taxa within Enterobacterales. Once raw ONT data is mapped to FASTQs these will be your negative BAMs. If in your test sequencing runs you often see an off-target amplification of same organism, add it to a negative set.
 
@@ -127,8 +127,50 @@ options:
   -g , --genotypes_hierarchy
                         JSON file with genotypes hierarchy
   --cpus                Number of CPUs to use, default=1
+  -s, --max_soft_clip   Specifies maximum permitted soft-clip (length of read before first and last mapped bases) of mapped read.
+  -l, --max_read_len_diff
+                        Specifies maximum nucleotide difference between mapped portion of read and target amplicon.
+  --organism_presence_cutoff
+                        ample is reported as having target organism if at least this % of non-transient amplicons have >10 reads. Values 0-100.
 
 ```
+Here is illustration of options -s and -l where "-" below is a nuclotide and " " is a gap in alignment.
+Read_1      -------------    Read_2      ------------------   Read_3         ----------   Read_4      ----     ----
+Reference   -------------    Reference        -------------   Reference   -------------   Reference   -------------
+By default, reads with length different from reference (i.e. target amplicon sequence) are discarded. 
+Option -s allows the read to overhang the reference on either side. With "-s 5" the Read_2 would be kept as it overhangs the reference by 5 nucleotides. Option "-s" would not have any effect on Read_3, it would be rejected. 
+Options -l allows the aligned portion of read to be shorter or longer than reference lenth. This allows accomodation of deletion/insertion sequencing errors. With "-l 5" Read_3 and Read_4 will both be kept. 
+**IMPORTANT While option -s is quite forgiving, -l can lead to problems as it does will not distiguish between true InDel that may be a sign of different species and sequencing errors**
+
+
+
+### Understanding results
+
+![image](https://github.com/AntonS-bio/HandyReadGenotyper/assets/47866509/2fffb39f-251a-45e1-bf60-fc4d293521a2)
+The summary of results consists of the following fields:
+
+A) the name of the model file used and the date that model was trained.
+
+B) The default 20.0% number can be changed using "--organism_presence_cutoff" option. It is used in (C)
+
+C) Yes/No field that reports presence of target organism. The outcome is determined by % of amplicons in the sample that have >10 reads from target organism. **IMPORTANT Some amplicons (eg. plasmid ones) are not expected to be present in all positive samples. These 
+amplicons are ignored for calculating the presence of target organism. These amplicons are not currently flagged in report, but will be in future versions**
+
+D) List of genotype alleles identified in the amplicons. Sometimes, a reference position that is linked to specific genotype has unexpected nucleotide. This is reported as "Unknown allele at known position".
+
+E) List of AMR linked alles idenfitied in the amplcions. At present, in cases where presence of amplicon is indicative of some AMR profile (eg. S. Typhi PST6 plasmid) these are **not** reported in field (E). This will change in the future.
+
+F) A diagram of how many amplicons have a certain number of SNPs in consensus sequence - each par is one amplicon. In first sample, 4 amplicons have 0 SNPs, and 1 amplicon has 2 SNPs. In the second sample, 5 amplicons has 0 SNPs and 2 amplicons has 1 SNP. This simultaneously shows the presence of products and identified possible off-target amplification.
+
+G) When classification was done from FASTQ files, this show the total number of reads in each sample.
+
+H) This shows the total number of reads that mapped to some amplicon and also were of correct length taking options "-s" and "-l" into account. 
+
+I) This is number of reads of wrong length. Note that normally, not all reads are mapped, so H + I <> G
+
+The rest of repot contains details on each sample as well as each sample's amplicon and these can be jumped to via hyperlinks in the report file.
+
+
 ## Getting data out of model file
 
 You may have noticed that the "classify" does not require FASTA as input. To avoid excessive inputs the reference sequence is stored in the model file. To access it, you can use genotyper_utilities function. 
