@@ -23,11 +23,6 @@ conda activate hrgENV
 ```
 to activate the environment. Now you are ready to use the HandyReadGenotyper. You would need to run activation command (but not create command) every time you start a new terminal. In both commands above "hrgENV" can be replaced with whatever you want to call the environment. 
 
-You can also install the tool without creating new environment
-```
-conda install -c bioconda -c conda-forge handyreadgenotyper
-```
-but this is not recommended.
 
 
 
@@ -66,12 +61,13 @@ The purpose of classifier is to take all reads provided to it and identify which
 To run classifier you have to main options. First, if you have already mapped FASTQs to amplicons reference sequence, you can provide the report with either directory with BAM files, a single BAM file or a plain text file with list of BAM files (full address including directory) to classify. Examples below use supplied test data from test_data.
 
 
-### I have BAMS files, I already mapped FASTQs to references
+### I already mapped FASTQs to references and generated and indexed BAM files
 
+This will classify all BAMs in directory ./bams/ 
 ```
 classify -b ./bams/ -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
 ```
-Maps all BAMs in directory ./bams/ while this will only classify sample_1.bam
+This will only classify sample_1.bam
 ```
 classify -b ./bams/sample_1.bam -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
 ```
@@ -85,7 +81,7 @@ If you don't have bams, you can use "-f" option to map FASTQs using minimap2 to 
 ```
 classify -b ./bams/ -f ./fastqs/ -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
 ```
-If you look at structure of test_data/fastqs you will see it's a bit odd. It's very difficult to capture all possible ways the FASTQs will be provided, but the most likely one if a result of single run from ONT devices. When these were multiplexed (most likely use case) ONT device will create a directory for each barcode and will place multiple FASTQ files for this barcode into that directory. It will likely look like this:
+If you look at structure of test_data/fastqs you will see it's a bit odd. It's very difficult to capture all possible ways the FASTQs will be provided, but the most likely one if a result of single run from ONT devices. When working with multiplex sequencing run (most likely use case), an ONT device will create a directory for each barcode and will place multiple FASTQ files for this barcode into that directory. It will likely look like this:
 ```
 Run_20
       ↳ barcode1
@@ -107,7 +103,7 @@ Normally, you'd need to merge the the files from each barcode before mapping, bu
 
 **IMPORTANT if HandyReadGenotyper is doing the mapping, it will call each output BAM by the name with corresponding barcode (ex. barcode2.bam), this may overwrite some old BAMs**
 
-Neither the metadata file (-d), nor genotypes hierarchy (-g) are required, but you probably already have them and they substantially enrich the classification report, so it's worth using them. The metadata file can be where you keep track of sequencing results, the genotypes hierarchy file was likely used when your PCR primers were generated. 
+Neither the metadata file (-d), nor genotypes hierarchy (-g) are required, but you probably already have them and they substantially enrich the classification report, so it's worth using them. The metadata file is simply a delimited file that lists the samples in the first column, the genotypes hierarchy file was likely used when your PCR primers were generated. 
 
 ```
 usage: classify -b  -m  -o  [-d] [-c] [--column_separator] [-g] [--cpu] [-h]
@@ -138,9 +134,9 @@ Here is illustration of options -s and -l where "-" below is a nuclotide and " "
 Read_1      -------------    Read_2      ------------------   Read_3         ----------   Read_4      ----     ----
 Reference   -------------    Reference        -------------   Reference   -------------   Reference   -------------
 By default, reads with length different from reference (i.e. target amplicon sequence) are discarded. 
-Option -s allows the read to overhang the reference on either side. With "-s 5" the Read_2 would be kept as it overhangs the reference by 5 nucleotides. Option "-s" would not have any effect on Read_3, it would be rejected. 
-Options -l allows the aligned portion of read to be shorter or longer than reference lenth. This allows accomodation of deletion/insertion sequencing errors. With "-l 5" Read_3 and Read_4 will both be kept. 
-**IMPORTANT While option -s is quite forgiving, -l can lead to problems as it does will not distiguish between true InDel that may be a sign of different species and sequencing errors**
+Option -s allows the read to overhang the reference on either side. With "-s 5" the Read_2 would be kept as it overhangs the reference by 5 nucleotides. Option "-s" would not have any effect on Read_3 and Read_4, they would be rejected. 
+Options -l allows the aligned portion of read to be shorter or longer than reference lenth. This allows accomodation of deletion/insertion sequencing errors. With "-l 5" Read_3 and Read_4 will both be kept. Read_2 would also be kept because it's 5nt longer than reference.
+**IMPORTANT While option -s is quite forgiving, -l can lead to problems as it does will not distiguish between sequencing errors and true InDel that may be a sign of different species**
 
 
 
