@@ -1,7 +1,7 @@
 <head>
     <style>
       html * {
-        font-family: sans-serif;
+        font-family: arial;
       }
     <style type="text/css">
     .table_header {

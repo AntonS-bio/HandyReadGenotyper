@@ -20,7 +20,7 @@ def get_snps(model_file: str) -> None:
                 print(genotype_snp.to_string)
 
 def test(model_file: str) -> None:
-    transient_amplicons = [line.strip() for line in open("/~/HandyReadGenotyper/extra_citrobacter_DO_NOT_DELETE/transient_amplicon.txt")]
+    transient_amplicons = [line.strip() for line in open(expanduser("~/HandyReadGenotyper/extra_citrobacter_DO_NOT_DELETE/transient_amplicon.txt"))]
     print(transient_amplicons)
     with open(model_file, "rb") as input_model:
         model_manager: Dict[str, Classifier] =load(input_model)
@@ -30,7 +30,7 @@ def test(model_file: str) -> None:
                 model._amplicon_transient=True
             else:
                 model._amplicon_transient=False
-    with open("~/HandyReadGenotyper/models/paratyphi_A_v2.pkl", "wb") as output:
+    with open(expanduser("~/HandyReadGenotyper/models/paratyphi_A_v1.pkl"), "wb") as output:
         dump(model_manager,output)
 
 def main():

@@ -13,6 +13,7 @@ import numpy as np
 import pysam as ps
 from data_classes import Amplicon
 
+
 base_dic={"A":1,"C":2,"G":3,"T":4,"N":5,"-":0}
 number_dic=dict([ (value, key) for key,value in base_dic.items() ])
 
@@ -232,18 +233,21 @@ class ClassificationResult:
         self.consensus="".join([number_dic[f] for f in most_common  ])
         return self.consensus
 
-    def calculate_genotype(self, genot_snps:List[GenotypeSNP]) -> Tuple[str, bool]: #Genotype name and boolean for AMR (True/False)
+
+
+    def calculate_genotype(self, genot_snps:List[GenotypeSNP], min_positive_reads: int) -> Tuple[str, bool]: #Genotype name and boolean for AMR (True/False)
         result=""
         snp_is_amr=False
         for pos, alt in self._mismatches.items():
             known_alleles=[f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
             if len(known_alleles)>0 :
                 snp_is_amr = known_alleles[0].is_amr
-                
+                suffux = "(?)" if self.positive_cases<min_positive_reads else ""
+
                 if alt in known_alleles[0].genotypes:
-                    addition =  known_alleles[0].genotypes[alt]
+                    addition =  known_alleles[0].genotypes[alt]+suffux
                 else:
-                    addition = f'Unknown allele at known position: {pos}'
+                    addition = f'Unknown allele at known position: {pos}'+suffux
                 result=result + ", " if result!="" else "" + addition
         return (result, snp_is_amr)
     
@@ -356,21 +360,21 @@ class ClassificationResult:
     def num_mismatches(self) -> int:
         return len(self._mismatches)
 
-    def result_description(self, genotype_snps: List[GenotypeSNP]=None) -> str:
-        prefix=f'Total {len(self.predicted_classes)} mapping reads of which '+"{:.0%}".format(Counter(self.predicted_classes)[1]/len(self.predicted_classes))+' are from target organism. \n'
-        if self.num_mismatches==0:
-            return f'{self.amplicon.name}: {prefix} Consensus is identical to reference'
-        else:
-            if genotype_snps is None:
-                genotypes="No genotype SNPs provided"
-            else:
-                gts=self.calculate_genotype(genot_snps=genotype_snps)
-                if gts[1]:
-                    genotypes="SNPs from AMR genotypes: "+self.calculate_genotype(genot_snps=genotype_snps)[0]
-                else:
-                    genotypes="SNPs from genotypes: "+self.calculate_genotype(genot_snps=genotype_snps)[0]
-            snps=",".join([f'{str(pos+1)}:{self.amplicon.seq[pos]}->{alt}' for pos, alt in self._mismatches.items()])
-            return f'{self.amplicon.name}: {prefix} Total SNPs: {self.num_mismatches}, {genotypes}, Mismatched alleles: {snps}'
+    # def result_description(self, genotype_snps: List[GenotypeSNP]=None) -> str:
+    #     prefix=f'Total {len(self.predicted_classes)} mapping reads of which '+"{:.0%}".format(Counter(self.predicted_classes)[1]/len(self.predicted_classes))+' are from target organism. \n'
+    #     if self.num_mismatches==0:
+    #         return f'{self.amplicon.name}: {prefix} Consensus is identical to reference'
+    #     else:
+    #         if genotype_snps is None:
+    #             genotypes="No genotype SNPs provided"
+    #         else:
+    #             gts=self.calculate_genotype(genot_snps=genotype_snps)
+    #             if gts[1]:
+    #                 genotypes="SNPs from AMR genotypes: "+self.calculate_genotype(genot_snps=genotype_snps)[0]
+    #             else:
+    #                 genotypes="SNPs from genotypes: "+self.calculate_genotype(genot_snps=genotype_snps)[0]
+    #         snps=",".join([f'{str(pos+1)}:{self.amplicon.seq[pos]}->{alt}' for pos, alt in self._mismatches.items()])
+    #         return f'{self.amplicon.name}: {prefix} Total SNPs: {self.num_mismatches}, {genotypes}, Mismatched alleles: {snps}'
     
     #endRegion
 

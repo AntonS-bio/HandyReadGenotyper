@@ -15,12 +15,14 @@ CLOSER='</td></tr>'
 MIDDLE='</td><td>'
 MIDDLE_WIDE='</td class=td_alt_wide><td>'
 POSITIVE_CASES_THRESHOLD=10
+LOW_READ_WARNING=10
 
 class ClasssifierReport:
 
-    def __init__(self, output_file: str, models_file: str, positive_cases_threshold: float, genotypes_file,  sample_labels:Dict[str, str]={}, 
+    def __init__(self, output_file: str, models_file: str, positive_amplicons_threshold: float, genotypes_file,  sample_labels:Dict[str, str]={}, 
                  mapping_results: List[MappingResult]=[]) -> None:
-        self._positive_amplicons_threshold = positive_cases_threshold/100
+        self._positive_amplicons_threshold = positive_amplicons_threshold/100
+
         self._model_file=models_file
         self.output_file=open( expanduser(output_file), "w" )
         self.genotypes={}
@@ -30,7 +32,7 @@ class ClasssifierReport:
         with open(expanduser(models_file), "rb") as model_file:
             self.trained_models: Dict[str, Classifier]=pickle.load(model_file) #Dict[key=amplicon name, value=corresponding model]
         self.sample_labels=sample_labels
-        self.sample_hyperlinks={} 
+        self.sample_hyperlinks={}
         self.mapping_results={}
         for item in mapping_results:
             self.mapping_results[item.sample_name] = item.total_reads
@@ -41,7 +43,7 @@ class ClasssifierReport:
     def _write_main_header(self, file_handle):
         file_handle.write("<table>\n")
         file_handle.write("\t<tbody>\n")
-        header_values=["Sample","Has Target Organism*", "Implied Genotypes","Implied AMR", "Consensus SNPs Frequency", "Sequencing Reads","Mapped, correct length", "Mapped, but too short/long"," Highest read count","Lowest read count"]
+        header_values=["Sample","Has Target Organism*", "Implied Genotypes","Implied AMR", "Amplicons by # of unknown SNPs", "Sequencing Reads","Mapped, correct length", "Mapped, but too short/long"]#," Highest read count","Lowest read count"]
         header_line=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER
         file_handle.write("\t"+header_line)
         file_handle.write("\n")
@@ -86,6 +88,20 @@ class ClasssifierReport:
         models_list=sorted(set([(f.model_timestamp) for f in self.results]))
         return models_list[-1].strftime("%d/%b/%y")
 
+    def _unamplified_amr_target(self, result: ClassificationResult) -> str:
+        #Get strikethrough names of the AMR amplicons that have not been amplified.
+        is_amr=False
+        if result.amplicon.name in self.trained_models:
+            for snp in self.trained_models[result.amplicon.name].genotype_snps:
+                if snp.is_amr:
+                    is_amr = True
+        if not is_amr:
+            return ""
+        if result.positive_cases == 0:
+            return "<del>"+result.amplicon.name+"</del>"
+        else:
+            return ""
+
     ####START Write main summary table
     def _write_summary(self):
         self.output_file.write('<div class=header_line><a name="Summary">Summary of results</div>\n')
@@ -122,7 +138,7 @@ class ClasssifierReport:
             sample_snp_diagram=self.snp_frequency_diagram(sample)
             #check if the number of non-transient amplicons with sufficient number of reads is above the presence threshold
             non_transient_amplicons=sum([1 for f in sample_results if not self.trained_models[f.amplicon.name].amplicon_transient])
-            non_transient_with_reads=sum( [f.positive_cases for f in sample_results if f.positive_cases>POSITIVE_CASES_THRESHOLD and not self.trained_models[f.amplicon.name].amplicon_transient] )
+            non_transient_with_reads=sum( [1 for f in sample_results if f.positive_cases>POSITIVE_CASES_THRESHOLD and not self.trained_models[f.amplicon.name].amplicon_transient] )
             if non_transient_with_reads>non_transient_amplicons*self._positive_amplicons_threshold:
                 has_target_org="Yes"
             else:
@@ -131,12 +147,13 @@ class ClasssifierReport:
             if has_target_org=="No": #do not show implied GTs if no target organism to avoid confusion.
                 gts=""
             else:
-                gts=sorted(set([f.calculate_genotype(self.trained_models[f.amplicon.name].genotype_snps) for f in sample_results]))
+                gts=sorted(set([f.calculate_genotype(self.trained_models[f.amplicon.name].genotype_snps, LOW_READ_WARNING) for f in sample_results]))
                 #calculate_genotype( ) ouputs Tuple[str, bool] with SNP name (gt) and bool to indicate AMR (True) or not (False)
                 if "" in gts:
                     gts.pop(gts.index(""))
                 self.sample_gts[ self._clean_sample(sample) ]=set([f[0] for f in gts])
-                amr_snps=", ".join([f[0] for f in  gts if f[1] and f[0]!=""])
+                missing_amr_products=[f for f in [self._unamplified_amr_target(result) for result in sample_results] if f!=""]
+                amr_snps=", ".join([f[0] for f in  gts if f[1] and f[0]!=""] + missing_amr_products)
                 gts=", ".join([f[0] for f in  gts if not f[1] and f[0]!=""])
             sample_cell_value=self.sample_display_name(sample)
             if self._clean_sample(sample) in self.mapping_results: #only works if mapping was done by HRG
@@ -147,12 +164,13 @@ class ClasssifierReport:
                                 has_target_org,
                                 gts,
                                 amr_snps,
-                                "<td class=diagram>"+sample_snp_diagram,
+                                #"<td class=diagram>"+sample_snp_diagram,
+                                sample_snp_diagram,
                                 sequenced_reads,
                                 total_mapped_reads,
-                                wrong_len_reads,
-                                highest_cov,
-                                lowest_cov ]
+                                wrong_len_reads]
+                                #highest_cov,
+                                #lowest_cov ]
             if i % 2 == 0: #Alternate row colours
                 table_line=OPENER_ALT+MIDDLE.join([str(f) for f in sample_line_values])+CLOSER
             else:
@@ -163,7 +181,9 @@ class ClasssifierReport:
 
         self.output_file.write("\t</tbody>\n")
         self.output_file.write("</table>\n")
-        self.output_file.write(f'<p>* Defined as at least {self._positive_amplicons_threshold*100}% of amplicons that <b>should always be present</b> having at least {POSITIVE_CASES_THRESHOLD} target organism reads</p>')
+        self.output_file.write(f'<p>* Defined as at least {self._positive_amplicons_threshold*100}% of amplicons that <a href="#ModelSignatures">are part of core genome</a> having at least {POSITIVE_CASES_THRESHOLD} target organism reads</p>')
+        self.output_file.write(f'<p>(?) Prediction is based on amplicon with fewer than {LOW_READ_WARNING} reads</p>')
+        self.output_file.write(f'<p><del>AMR Amplicon</del> means no reads were found for this AMR amplicon</p>')
         if add_read_length_flag:
             self.output_file.write(f'<p>^ The number of reads either longer or shorter than amplicon is >3x higher than reads that match amplicon length. If this is unexpected, consider using options "-s" or "-l". </p>')
         self.output_file.write('<p>Report generated on '+datetime.now().strftime("%d/%b/%y at %H:%M")+'. <a href="#ModelSignatures">See models list</a></p>')
@@ -177,12 +197,13 @@ class ClasssifierReport:
         self._insert_paragraph(1)
         self.output_file.write("<table>\n")
         self.output_file.write("\t<tbody>\n")
-        header_values=["Model","Signature", "Date Trained"]
+        header_values=["Amplicon", "Is Core","Signature", "Date Trained"]
         table_header=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER
         self.output_file.write(table_header+"\n")
         models_list=sorted(set([(f.amplicon.name, f.model_fingerprint,f.model_timestamp) for f in self.results]))
         for i, result in enumerate(models_list):
-            row_values=[result[0], result[1], result[2].strftime("%d/%b/%y at %H:%M")]
+            is_core=not self.trained_models[result[0]].amplicon_transient
+            row_values=[result[0], is_core, result[1], result[2].strftime("%d/%b/%y at %H:%M")]
             if i % 2 == 0: #Alternate row colours
                 table_row=OPENER_ALT+MIDDLE.join([str(f) for f in row_values])+CLOSER
             else:
@@ -224,7 +245,7 @@ class ClasssifierReport:
                     target_org_reads_count=str(amplicon_result.positive_cases)+untrained_suffix
                     snp_num=amplicon_result.num_mismatches
                     unknown_snps=amplicon_result.num_unknown_snps(self.trained_models[amplicon_name].genotype_snps)
-                    known_snps=[f for f in amplicon_result.calculate_genotype(self.trained_models[amplicon_name].genotype_snps)]
+                    known_snps=[f for f in amplicon_result.calculate_genotype(self.trained_models[amplicon_name].genotype_snps, LOW_READ_WARNING)]
                     known_gts=known_snps[0] if known_snps[1] is False else ""
                     known_amrs=known_snps[0] if known_snps[1] is True else ""
                     row_values=[first_cell + untrained_suffix, tot_reads,target_org_reads_share,target_org_reads_count,snp_num, known_gts, known_amrs,unknown_snps]
@@ -290,14 +311,23 @@ class ClasssifierReport:
             if amplicon_result.positive_cases>POSITIVE_CASES_THRESHOLD:
                 unknown_snps.append(amplicon_result.num_unknown_snps(self.trained_models[amplicon_name].genotype_snps))
         unknown_snps=Counter(unknown_snps)
-        diagram="<br/><br/>"+"0"+HTML_SPACE+HTML_SPACE+"3"+HTML_SPACE+">5"
-        for y in range(1, 6):
-            new_line=""
-            for x in range(0, 6):
-                new_line+="-" if x in unknown_snps and unknown_snps[x]>=y else HTML_SPACE
-            over_fives=sum ([value for key, value in unknown_snps.items() if key>5] )
-            new_line+="-" if over_fives>=y else HTML_SPACE
-            diagram=new_line+"<br/>"+diagram
+        diagram=""
+        for x in range(0, 5):
+            if x in unknown_snps:
+                diagram=diagram+str(unknown_snps[x])+","+HTML_SPACE
+            else:
+                diagram=diagram+"0,"+HTML_SPACE
+        over_five=sum([value for key, value in unknown_snps.items() if key>5])
+        diagram=diagram+str(over_five)
+        return diagram
+        # diagram="<br/><br/>"+"0"+HTML_SPACE+HTML_SPACE+"3"+HTML_SPACE+">5"
+        # for y in range(1, 6):
+        #     new_line=""
+        #     for x in range(0, 6):
+        #         new_line+="-" if x in unknown_snps and unknown_snps[x]>=y else HTML_SPACE
+        #     over_fives=sum ([value for key, value in unknown_snps.items() if key>5] )
+        #     new_line+="-" if over_fives>=y else HTML_SPACE
+        #     diagram=new_line+"<br/>"+diagram
         return diagram
 
     def _write_consensus_sequences(self):
