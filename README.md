@@ -131,8 +131,9 @@ options:
 
 ```
 Here is illustration of options -s and -l where "-" below is a nuclotide and " " is a gap in alignment.
-Read_1      -------------    Read_2      ------------------   Read_3         ----------   Read_4      ----     ----
-Reference   -------------    Reference        -------------   Reference   -------------   Reference   -------------
+
+![image](https://github.com/user-attachments/assets/bfb3fcc0-99b4-4ff9-bc64-9deb9614512c)
+
 By default, reads with length different from reference (i.e. target amplicon sequence) are discarded. 
 Option -s allows the read to overhang the reference on either side. With "-s 5" the Read_2 would be kept as it overhangs the reference by 5 nucleotides. Option "-s" would not have any effect on Read_3 and Read_4, they would be rejected. 
 Options -l allows the aligned portion of read to be shorter or longer than reference lenth. This allows accomodation of deletion/insertion sequencing errors. With "-l 5" Read_3 and Read_4 will both be kept. Read_2 would also be kept because it's 5nt longer than reference.
