@@ -143,7 +143,11 @@ Options -l allows the aligned portion of read to be shorter or longer than refer
 
 ### Understanding results
 
-![image](https://github.com/AntonS-bio/HandyReadGenotyper/assets/47866509/2fffb39f-251a-45e1-bf60-fc4d293521a2)
+![image](https://github.com/user-attachments/assets/26c17021-98bf-4586-b09b-9ca795df7143)
+
+
+
+
 The summary of results consists of the following fields:
 
 A) the name of the model file used and the date that model was trained.
