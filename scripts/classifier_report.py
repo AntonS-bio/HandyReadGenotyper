@@ -317,7 +317,7 @@ class ClasssifierReport:
                 diagram=diagram+str(unknown_snps[x])+","+HTML_SPACE
             else:
                 diagram=diagram+"0,"+HTML_SPACE
-        over_five=sum([value for key, value in unknown_snps.items() if key>5])
+        over_five=sum([value for key, value in unknown_snps.items() if key>=5])
         diagram=diagram+str(over_five)
         return diagram
         # diagram="<br/><br/>"+"0"+HTML_SPACE+HTML_SPACE+"3"+HTML_SPACE+">5"
