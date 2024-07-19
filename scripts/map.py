@@ -5,8 +5,8 @@ from os import  walk,  remove, mkdir
 from os.path import isfile, join,  exists, isdir, expanduser, split
 import uuid
 import pysam as ps
-from read_classifier import Classifier
-import pickle
+# from read_classifier import Classifier
+# import pickle
 
 class MappingResult:
     def __init__(self, bam_file:str) -> None:
@@ -166,4 +166,17 @@ class ReadMapper:
             remove(merged_file)
         return True
 
+    def output_names(self, bams_dir: str) -> bool:
+        if not exists(bams_dir):
+            mkdir(bams_dir)
+        if not isdir(bams_dir):
+            print("You specified --fastqs, so --bams must be a directory into which mapped files will be placed.")
+            return False
+
+        result=[]
+        self.source_to_samples()
+        self.results: List[MappingResult]=[]
+        for key in self._barcode_files.keys():
+            result.append(join(bams_dir, key.split("/")[-1]+".bam") )
+        return result
 

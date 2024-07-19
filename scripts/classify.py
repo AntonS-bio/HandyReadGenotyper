@@ -105,6 +105,14 @@ def classify(temp_dir):
         mapper=ReadMapper(temp_dir,
                         args.fastqs,
                         model_file, fasta_file, cpu_to_use)
+        
+        #check that sample labels are present in metadatafile
+        sample_labels: Dict[str, str] = {}
+        if not  args.sample_descriptions is None:
+            files_to_check=mapper.output_names(bams_dir)
+            if not input_processing.get_sample_labels(metadata_file,metadata_sep, metadata_column, files_to_check, sample_labels):
+                return #terminate if some sample is not present in metadata.
+
         if not mapper.map(bams_dir):
             return
         file_to_classify=[f.bam_file for f in mapper.results]
@@ -121,10 +129,7 @@ def classify(temp_dir):
         if not input_processing.file_exists(args.genotypes_hierarchy):
             return
 
-    sample_labels: Dict[str, str] = {}
-    if not  args.sample_descriptions is None:
-        if not input_processing.get_sample_labels(metadata_file,metadata_sep, metadata_column, file_to_classify, sample_labels):
-            return
+
 
     target_regions: List[Amplicon] = generate_amplicons(model_file, fasta_file)
 
