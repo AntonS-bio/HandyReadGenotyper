@@ -3,15 +3,14 @@ from typing import List, Dict
 import pickle
 from os.path import  expanduser, join, exists
 from os import mkdir
-from inputs_validation import ValidateFiles
+from shutil import which, rmtree
+import uuid 
 from data_classes import Amplicon
 from input_processing import InputProcessing
 from model_manager import ModelManager
 from classifier_report import ClasssifierReport
 from read_classifier import Classifier, ReadsMatrix
 from map import ReadMapper
-from shutil import which, rmtree
-import uuid 
 
 def generate_amplicons(model_file: str, fasta_file:str) -> List[Amplicon]:
     target_regions: List[Amplicon] = []
@@ -118,6 +117,12 @@ def classify(temp_dir):
         file_to_classify=[f.bam_file for f in mapper.results]
     else: #use the bams provided
         file_to_classify=input_processing.get_bam_files( args.bams )
+        sample_labels: Dict[str, str] = {}
+        if not  args.sample_descriptions is None:
+            files_to_check=mapper.output_names(bams_dir)
+            if not input_processing.get_sample_labels(metadata_file,metadata_sep, metadata_column, file_to_classify, sample_labels):
+                return #terminate if some sample is not present in metadata.
+
     if len(file_to_classify)==0:
         print("No files to classify. Please check that you have specified correct FASTQs directory if using -f or existing BAMs if not using -f")
         return
