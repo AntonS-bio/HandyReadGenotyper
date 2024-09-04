@@ -1,7 +1,8 @@
 import argparse
+import subprocess
 from typing import List, Dict
 import pickle
-from os.path import  expanduser, join, exists
+from os.path import  expanduser, join, exists, basename
 from os import mkdir
 from shutil import which, rmtree
 import uuid 
@@ -9,13 +10,15 @@ from data_classes import Amplicon
 from input_processing import InputProcessing
 from model_manager import ModelManager
 from classifier_report import ClasssifierReport
-from read_classifier import Classifier, ReadsMatrix
+from read_classifier import Classifier, ReadsMatrix, ModelsData, ClassificationResult
 from map import ReadMapper
+import pysam as ps
 
 def generate_amplicons(model_file: str, fasta_file:str) -> List[Amplicon]:
     target_regions: List[Amplicon] = []
     with open(model_file, "rb") as input_model:
-        model_manager: Dict[str, Classifier] =pickle.load(input_model)
+        models_data: ModelsData = pickle.load(input_model)
+        model_manager: Dict[str, Classifier] = models_data.classifiers
     for name, model in model_manager.items():
         bed_line=f'{model.name}\t0\t{len(model.nucletoide_seq)}\t{model.name}'
         target_regions.append(Amplicon.from_bed_line(bed_line, fasta_file))
@@ -23,11 +26,30 @@ def generate_amplicons(model_file: str, fasta_file:str) -> List[Amplicon]:
 
 def generate_ref_fasta(model_file: str, ref_file: str) -> None:
     with open(model_file, "rb") as input_model:
-        model_manager: Dict[str, Classifier] =pickle.load(input_model)
+        models_data: ModelsData = pickle.load(input_model)
+        model_manager: Dict[str, Classifier] = models_data.classifiers
     with open(ref_file, "w" ) as ref_output:
         for name, model in model_manager.items():
             ref_output.write(">"+str(model.name)+"\n")
             ref_output.write(str(model.nucletoide_seq)+"\n")
+
+def get_postive_reads(results: List[ClassificationResult], target_reads_bams: str):
+        postive_read_ids: Dict[str, List[str]]={}
+        for result in results:
+            if result.sample not in postive_read_ids:
+                postive_read_ids[result.sample]=[]
+            for read_id in result.positive_read_ids:
+                postive_read_ids[result.sample].append(read_id)
+
+        for sample, ids in postive_read_ids.items():
+            bam = ps.AlignmentFile(sample, "rb",check_sq=False)
+            output_file=join(target_reads_bams,basename(sample))
+            target_reads_bam=ps.AlignmentFile( output_file, "wb", template=bam)
+            for read in bam.fetch():
+                if read.query_name in ids:
+                    target_reads_bam.write(read)
+            target_reads_bam.close()
+            subprocess.run(f'samtools index {output_file} {output_file+".bai"}', shell=True, executable="/bin/bash", stdout=subprocess.PIPE,  stderr=subprocess.PIPE)
 
 def classify(temp_dir):
 
@@ -44,10 +66,12 @@ def classify(temp_dir):
                         help='Column in sample description file to use to augmnet samples descriptions', required=False)
     parser.add_argument('--column_separator',  type=str,
                         help='The column separator for the sample descriptions file', required=False, default="\t")
-    parser.add_argument('-g','--genotypes_hierarchy', type=str, help='JSON file with genotypes hierarchy', required=False)
+    #parser.add_argument('-g','--genotypes_hierarchy', type=str, help='JSON file with genotypes hierarchy', required=False)
     parser.add_argument('--cpus', type=int, help='Number of CPU cores to use', required=False, default=1)
     parser.add_argument('-o','--output_file', type=str,
                         help='File to store classification results', required=True)
+    parser.add_argument('--target_reads_bams', type=str,
+                        help='Directory to which to write reads classified as target organism', required=False)
     parser.add_argument('-s', '--max_soft_clip', type=int,
                         help='Specifies maximum permitted soft-clip (length of read before first and last mapped bases) of mapped read', required=False, default=25)
     parser.add_argument('-l', '--max_read_len_diff', type=int,
@@ -94,7 +118,13 @@ def classify(temp_dir):
         if not input_processing.file_exists(metadata_file):
             return
         metadata_column, metadata_sep = input_processing.check_metadata(args, metadata_file)
+        if not input_processing.check_column_in_descriptions(metadata_file,metadata_column, metadata_sep):
+            return
 
+    if not args.target_reads_bams is None:
+        if not input_processing.file_exists(args.target_reads_bams):
+            return
+        target_reads_bams=expanduser(args.target_reads_bams)
 
     #Map the raw reads or collect bams to classify
     if not args.fastqs is None:
@@ -130,9 +160,9 @@ def classify(temp_dir):
 
     output_file=input_processing.check_output_dir(args.output_file)
 
-    if not args.genotypes_hierarchy is None:
-        if not input_processing.file_exists(args.genotypes_hierarchy):
-            return
+    # if not args.genotypes_hierarchy is None:
+    #     if not input_processing.file_exists(args.genotypes_hierarchy):
+    #         return
 
 
 
@@ -141,6 +171,7 @@ def classify(temp_dir):
     model_manager=ModelManager(model_file, cpu_to_use)
     results=model_manager.classify_new_data(target_regions, file_to_classify)
 
+    get_postive_reads(results, target_reads_bams)
     # with open(expanduser("~/HandyReadGenotyper/temp/read_ids.tsv"),"w") as output:
     #     output.write("File\tAmplicon\tID\n")
     #     for result in results:
@@ -148,18 +179,18 @@ def classify(temp_dir):
     #             output.write(result.sample+"\t"+result.amplicon.name+"\t"+read_id+"\n")
 
     if not args.fastqs is None:
-        report=ClasssifierReport(output_file, model_file, args.organism_presence_cutoff, args.genotypes_hierarchy, sample_labels, mapping_results=mapper.results)
+        report=ClasssifierReport(output_file, model_file, args.organism_presence_cutoff, sample_labels, mapping_results=mapper.results)
     else:
-        report=ClasssifierReport(output_file, model_file, args.organism_presence_cutoff, args.genotypes_hierarchy, sample_labels)
+        report=ClasssifierReport(output_file, model_file, args.organism_presence_cutoff, sample_labels)
     report.create_report(results)
     rmtree(temp_dir)
     
 def main():
     temp_dir=expanduser( join("./",str(uuid.uuid4())) )
-    #try:
-    classify(temp_dir)
-    #except Exception as e:
-    #    print(e)
+    try:
+        classify(temp_dir)
+    except Exception as e:
+       print(e)
     if exists(temp_dir): #clean up
         rmtree(temp_dir)
 

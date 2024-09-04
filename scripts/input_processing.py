@@ -112,6 +112,4 @@ class InputProcessing:
             metadata_column = args.description_column
             metadata_sep = args.column_separator
 
-            if not self.check_column_in_descriptions(metadata_file,metadata_column, metadata_sep):
-                raise ValueError()
             return (metadata_column, args.column_separator)

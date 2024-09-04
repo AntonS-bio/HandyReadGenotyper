@@ -17,6 +17,9 @@ from data_classes import Amplicon
 base_dic={"A":1,"C":2,"G":3,"T":4,"N":5,"-":0}
 number_dic=dict([ (value, key) for key,value in base_dic.items() ])
 
+
+
+
 class GenotypeSNP:
     UNINFORMATIVE_ALLLE="uninformative"
 
@@ -230,26 +233,33 @@ class ClassificationResult:
 
     def get_consensus(self, data: np.array) -> str:
         most_common=np.apply_along_axis( lambda x: Counter(x).most_common(1)[0][0], axis=0,  arr=data  )
+        most_common_frequency=np.apply_along_axis( lambda x: Counter(x).most_common(1)[0][1], axis=0,  arr=data  )
+        self.consensus_frequency=[f/data.shape[0] for f in most_common_frequency]
         self.consensus="".join([number_dic[f] for f in most_common  ])
         return self.consensus
 
 
 
-    def calculate_genotype(self, genot_snps:List[GenotypeSNP], min_positive_reads: int) -> Tuple[str, bool]: #Genotype name and boolean for AMR (True/False)
+    def calculate_genotype(self, genot_snps:List[GenotypeSNP], min_positive_reads: int, with_frequency:bool=True) -> Tuple[str, bool]: #Genotype name and boolean for AMR (True/False)
         result=""
         snp_is_amr=False
         for pos, alt in self._mismatches.items():
-            known_alleles=[f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
+            known_alleles = [f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
             if len(known_alleles)>0 :
                 snp_is_amr = known_alleles[0].is_amr
                 suffux = "(?)" if self.positive_cases<min_positive_reads else ""
-
-                if alt in known_alleles[0].genotypes:
-                    addition =  known_alleles[0].genotypes[alt]+suffux
+                if with_frequency:
+                    allele_frequency=" ("+'{:.0%}'.format(self.consensus_frequency[pos])+") "
                 else:
-                    addition = f'Unknown allele at known position: {pos}'+suffux
+                    allele_frequency=""
+                if alt in known_alleles[0].genotypes:
+                    addition =  known_alleles[0].genotypes[alt]+allele_frequency+suffux
+                else:
+                    addition = f'Unknown allele at known position: {pos}'+allele_frequency+suffux
                 result=result + ", " if result!="" else "" + addition
         return (result, snp_is_amr)
+    
+
     
     def num_unknown_snps(self, genot_snps:List[GenotypeSNP]) -> int:
         result=0
@@ -341,12 +351,23 @@ class ClassificationResult:
 
     @property
     def consensus(self) -> str:
+        '''Consensus sequence string'''
         return self._consensus
 
     @consensus.setter
     def consensus(self, value: str):
         self._mismatches=dict([ (pos,alt) for ref, alt, pos in zip(self.amplicon.seq, value, range(0,len(value))) if ref!=alt ])
         self._consensus = value
+
+    @property
+    def consensus_frequency(self) -> List[float]:
+        '''Shows share of dominant nucleotide for each consensus base'''
+        return self._consensus_frequency
+
+    @consensus_frequency.setter
+    def consensus_frequency(self, value: List[float]):
+        self._consensus_frequency=value
+
 
     @property
     def has_mismatches(self) -> bool:
@@ -701,3 +722,22 @@ class Classifier:
     def nucletoide_seq(self, value: str):
         self._nucletoide_seq = value
     #endregion
+
+class ModelsData:
+    """Class that contains two properties: list of trained Classifier objects and Metadata
+    metadata is a dictionary that allows for addition of new information in the future
+    """
+
+    def __init__(self) -> None:
+        self._classifiers:Dict[str, Classifier]={}
+        self._metadata:Dict[str, object]={}
+
+    @property
+    def classifiers(self) -> Dict[str, Classifier]:
+        '''Get the dictionary of classifiers with model names as keys'''
+        return self._classifiers
+    
+    @property
+    def metadata(self) -> Dict[str, object]:
+        '''Get the dictionary of metadata objects with object names as keys'''
+        return self._metadata    

@@ -6,7 +6,7 @@ from typing import Dict, List, Set, Tuple
 import pickle
 from tqdm import tqdm
 import numpy as np
-from read_classifier import ReadsMatrix, Classifier, ClassificationResult, number_dic, GenotypeSNP
+from read_classifier import ReadsMatrix, Classifier, ClassificationResult, number_dic, GenotypeSNP, ModelsData
 from data_classes import Amplicon
 from datetime import datetime
 import hashlib
@@ -279,7 +279,8 @@ class ModelManager:
         '''
 
         with open(self._model_output_file, "rb") as model_file:
-            self.trained_models=pickle.load(model_file)
+            self.models_data: ModelsData = pickle.load(model_file)
+            self.trained_models=self.models_data.classifiers
 
         #print("Loading file: "+bam_file)
         reads_data: ReadsMatrix=self._process_bams(bam_file)
@@ -306,7 +307,7 @@ class ModelManager:
         del reads_data
         return results
 
-    def classify_new_data(self, target_regions: List[Amplicon], bam_files: List[str]) -> None:
+    def classify_new_data(self, target_regions: List[Amplicon], bam_files: List[str]) -> List[ClassificationResult]:
         """Creates nucleotides matrix from existing nucleotide matrices
         and trains model to differentiate reads from positive and negative matrices
 
