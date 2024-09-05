@@ -6,6 +6,7 @@ OutputData/
 single_amplicon/
 test_scripts/*
 typhi_dat*
+test/
 typhi_data/
 wo_paratyphi/
 all_amplicons/

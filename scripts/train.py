@@ -19,6 +19,8 @@ def main():
                         help='Directory with or list of TARGET BAM files and corresponding BAM index files (.bai)', required=False)
     parser.add_argument('-v','--vcf', type=str,
                         help='VCF file containing positions that will be excluded from training as well as genotype defining SNPs (also excluded)', required=True)
+    parser.add_argument('-s','--special_cases', type=str,
+                        help='Tab delimited file specifying amplicon for which presence/absense should be reported', required=False)
     parser.add_argument('-o','--output_dir', type=str,
                         help='Directory for output files', required=True)
     parser.add_argument('--cpus', type=int,

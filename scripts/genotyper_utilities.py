@@ -1,9 +1,9 @@
-from read_classifier import Classifier
+from read_classifier import Classifier, ModelsData
 from pickle import load, dump
 from typing import Dict
 from os.path import expanduser, exists
 import argparse
-
+import json
 
 def get_reference_fasta(model_file: str) -> None:
     with open(model_file, "rb") as input_model:
@@ -19,19 +19,40 @@ def get_snps(model_file: str) -> None:
             for genotype_snp in model.genotype_snps:
                 print(genotype_snp.to_string)
 
-def test(model_file: str) -> None:
-    transient_amplicons = [line.strip() for line in open(expanduser("~/HandyReadGenotyper/extra_citrobacter_DO_NOT_DELETE/transient_amplicon.txt"))]
-    print(transient_amplicons)
+def load_hierarchy(model_file: str, heirarchy_file:str) -> None:
     with open(model_file, "rb") as input_model:
         model_manager: Dict[str, Classifier] =load(input_model)
-        for name, model in model_manager.items():
-            if name in transient_amplicons:
-                print(name)
-                model._amplicon_transient=True
-            else:
-                model._amplicon_transient=False
-    with open(expanduser("~/HandyReadGenotyper/models/paratyphi_A_v1.pkl"), "wb") as output:
-        dump(model_manager,output)
+        # for name, model in model_manager.items():
+        #     for genotype_snp in model.genotype_snps:
+        #         print(genotype_snp.to_string)                
+
+def test(model_file: str) -> None:
+    pass
+    # with open(model_file, "rb") as input_model:
+    #     model_manager: Dict[str, Classifier] =load(input_model)
+    # genotypes={}
+    # genotypes_file="/home/lshas17/HandyReadGenotyper/typhi_data_v3/hierarchy.json"
+    # with open( expanduser(genotypes_file) ) as gt_data:
+    #     genotypes = json.load(gt_data)
+    # models_data: ModelsData = ModelsData()
+    # #models_data.metadata["hierarchy"] = genotypes
+    # for name, model in model_manager.items():
+    #     models_data.classifiers[name]=model
+    # with open("/home/lshas17/HandyReadGenotyper/models/paratyphi_A_v3.pkl", "wb") as output:
+    #     dump(models_data,output)
+
+    # transient_amplicons = [line.strip() for line in open(expanduser("~/HandyReadGenotyper/extra_citrobacter_DO_NOT_DELETE/transient_amplicon.txt"))]
+    # print(transient_amplicons)
+    # with open(model_file, "rb") as input_model:
+    #     model_manager: Dict[str, Classifier] =load(input_model)
+    #     for name, model in model_manager.items():
+    #         if name in transient_amplicons:
+    #             print(name)
+    #             model._amplicon_transient=True
+    #         else:
+    #             model._amplicon_transient=False
+    # with open(expanduser("~/HandyReadGenotyper/models/paratyphi_A_v1.pkl"), "wb") as output:
+    #     dump(model_manager,output)
 
 def main():
 

@@ -264,7 +264,6 @@ class Amplicon:
         new_amplicon.ref_seq=new_refseq
         return new_amplicon
 
-
     @property
     def ref_seq(self) -> ReferenceSequence:
         if not self._has_reference:
@@ -292,30 +291,6 @@ class Amplicon:
             return self.ref_seq.sequence
         else:
             return self._seq
-
-    # @ref_contig.setter
-    # def ref_contig(self, value: str):
-    #     self._ref_contig = value
-
-    # @property
-    # def ref_start(self) -> int:
-    #     if not self._has_reference:
-    #         raise ValueError(f'Amplicon {self._name} has no reference')
-    #     return self._ref_start
-
-    # @ref_start.setter
-    # def ref_start(self, value: int):
-    #     self._ref_start = int(value)
-
-    # @property
-    # def ref_end(self) -> int:
-    #     if not self._has_reference:
-    #         raise ValueError(f'Amplicon {self._name} has no reference')
-    #     return self._ref_end
-
-    # @ref_end.setter
-    # def ref_end(self, value: int):
-    #     self._ref_end = int(value)
 
     @property
     def left_flanking_id(self) -> str:
