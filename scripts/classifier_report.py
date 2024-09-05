@@ -1,6 +1,6 @@
 import pickle
 from typing import List, Dict
-from read_classifier import ClassificationResult, Classifier
+from read_classifier import ClassificationResult, Classifier, ModelsData
 from os.path import expanduser, basename
 from pathlib import Path
 from datetime import datetime
@@ -19,18 +19,18 @@ LOW_READ_WARNING=10
 
 class ClasssifierReport:
 
-    def __init__(self, output_file: str, models_file: str, positive_amplicons_threshold: float, genotypes_file,  sample_labels:Dict[str, str]={}, 
+    def __init__(self, output_file: str, models_file: str, positive_amplicons_threshold: float, sample_labels:Dict[str, str]={}, 
                  mapping_results: List[MappingResult]=[]) -> None:
         self._positive_amplicons_threshold = positive_amplicons_threshold/100
 
         self._model_file=models_file
         self.output_file=open( expanduser(output_file), "w" )
         self.genotypes={}
-        if not genotypes_file is None:
-            with open( expanduser(genotypes_file) ) as gt_data:
-                self.genotypes = json.load(gt_data)
         with open(expanduser(models_file), "rb") as model_file:
-            self.trained_models: Dict[str, Classifier]=pickle.load(model_file) #Dict[key=amplicon name, value=corresponding model]
+            self.models_data: ModelsData = pickle.load(model_file)
+            self.trained_models: Dict[str, Classifier]= self.models_data.classifiers #Dict[key=amplicon name, value=corresponding model]
+        if "hierarchy" in self.models_data.metadata:
+            self.genotypes = self.models_data.metadata["hierarchy"]
         self.sample_labels=sample_labels
         self.sample_hyperlinks={}
         self.mapping_results={}
@@ -43,7 +43,8 @@ class ClasssifierReport:
     def _write_main_header(self, file_handle):
         file_handle.write("<table>\n")
         file_handle.write("\t<tbody>\n")
-        header_values=["Sample","Has Target Organism*", "Implied Genotypes","Implied AMR", "Amplicons by # of unknown SNPs", "Sequencing Reads","Mapped, correct length", "Mapped, but too short/long"]#," Highest read count","Lowest read count"]
+        #header_values=["Sample","Has Target Organism*", "Implied Genotypes","Implied AMR", "Amplicons by # of unknown SNPs", "Sequencing Reads","Mapped, correct length", "Mapped, but too short/long"]#," Highest read count","Lowest read count"]
+        header_values=["Sample", "Amplicons by # of unknown SNPs", "Implied Genotypes","Implied AMR", "Sequencing Reads","Mapped, correct length", "Mapped, but too short/long"]#," Highest read count","Lowest read count"]
         header_line=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER
         file_handle.write("\t"+header_line)
         file_handle.write("\n")
@@ -102,6 +103,14 @@ class ClasssifierReport:
         else:
             return ""
 
+    def get_transient_amplicons(self, results: List[ClassificationResult]) -> str:
+        values=[]
+        for result in results:
+            amplicon_name=result.amplicon.name
+            if result.positive_cases>POSITIVE_CASES_THRESHOLD and self.trained_models[amplicon_name].amplicon_transient:
+                values.append(amplicon_name)
+        return values
+
     ####START Write main summary table
     def _write_summary(self):
         self.output_file.write('<div class=header_line><a name="Summary">Summary of results</div>\n')
@@ -116,6 +125,7 @@ class ClasssifierReport:
         for key, item in self.genotypes.items():
             self._write_gt(key, item, 0)
 
+        self.sample_gts_w_frequency: Dict[str, List[str]]={}
         self.sample_gts: Dict[str, List[str]]={}
         self.empty_samples=set()
         add_read_length_flag=False
@@ -132,28 +142,30 @@ class ClasssifierReport:
             lowest_cov=sample_results[ mapped_reads.index(min(mapped_reads)) ]
             lowest_cov=f'{len(lowest_cov.predicted_classes)}<br>({lowest_cov.amplicon.name})'
             #threshold settings: positive_amplicons_threshold% of amplicons must have >POSITIVE_CASES_THRESHOLD target reads
-            has_target_org="No"
+            has_target_org="Yes"
             amr_snps=""
             gts=""
             sample_snp_diagram=self.snp_frequency_diagram(sample)
             #check if the number of non-transient amplicons with sufficient number of reads is above the presence threshold
             non_transient_amplicons=sum([1 for f in sample_results if not self.trained_models[f.amplicon.name].amplicon_transient])
             non_transient_with_reads=sum( [1 for f in sample_results if f.positive_cases>POSITIVE_CASES_THRESHOLD and not self.trained_models[f.amplicon.name].amplicon_transient] )
-            if non_transient_with_reads>non_transient_amplicons*self._positive_amplicons_threshold:
-                has_target_org="Yes"
-            else:
-                self.empty_samples.add(self._clean_sample(sample))
+            # if non_transient_with_reads>non_transient_amplicons*self._positive_amplicons_threshold:
+            #     has_target_org="Yes"
+            # else:
+            #     self.empty_samples.add(self._clean_sample(sample))
             
             if has_target_org=="No": #do not show implied GTs if no target organism to avoid confusion.
                 gts=""
             else:
-                gts=sorted(set([f.calculate_genotype(self.trained_models[f.amplicon.name].genotype_snps, LOW_READ_WARNING) for f in sample_results]))
-                #calculate_genotype( ) ouputs Tuple[str, bool] with SNP name (gt) and bool to indicate AMR (True) or not (False)
-                if "" in gts:
-                    gts.pop(gts.index(""))
-                self.sample_gts[ self._clean_sample(sample) ]=set([f[0] for f in gts])
+                for target, option in zip( [self.sample_gts, self.sample_gts_w_frequency], [False, True]  ):
+                    gts=sorted(set([f.calculate_genotype(self.trained_models[f.amplicon.name].genotype_snps, LOW_READ_WARNING, option) for f in sample_results]))
+                    #calculate_genotype( ) ouputs Tuple[str, bool] with SNP name (gt) and bool to indicate AMR (True) or not (False)
+                    if "" in gts:
+                        gts.pop(gts.index(""))
+                    target[ self._clean_sample(sample) ]=set([f[0] for f in gts])
+
                 missing_amr_products=[f for f in [self._unamplified_amr_target(result) for result in sample_results] if f!=""]
-                amr_snps=", ".join([f[0] for f in  gts if f[1] and f[0]!=""] + missing_amr_products)
+                amr_snps=", ".join([f[0] for f in  gts if f[1] and f[0]!=""] + missing_amr_products + self.get_transient_amplicons(sample_results) )
                 gts=", ".join([f[0] for f in  gts if not f[1] and f[0]!=""])
             sample_cell_value=self.sample_display_name(sample)
             if self._clean_sample(sample) in self.mapping_results: #only works if mapping was done by HRG
@@ -161,11 +173,11 @@ class ClasssifierReport:
             else:
                 sequenced_reads="Unavailable"
             sample_line_values=['<a href="#'+self._clean_sample(sample)+'">'+sample_cell_value+"</a>",
-                                has_target_org,
+                                #has_target_org,
+                                sample_snp_diagram,
                                 gts,
                                 amr_snps,
                                 #"<td class=diagram>"+sample_snp_diagram,
-                                sample_snp_diagram,
                                 sequenced_reads,
                                 total_mapped_reads,
                                 wrong_len_reads]
@@ -181,7 +193,7 @@ class ClasssifierReport:
 
         self.output_file.write("\t</tbody>\n")
         self.output_file.write("</table>\n")
-        self.output_file.write(f'<p>* Defined as at least {self._positive_amplicons_threshold*100}% of amplicons that <a href="#ModelSignatures">are part of core genome</a> having at least {POSITIVE_CASES_THRESHOLD} target organism reads</p>')
+        #self.output_file.write(f'<p>* Defined as at least {self._positive_amplicons_threshold*100}% of amplicons that <a href="#ModelSignatures">are part of core genome</a> having at least {POSITIVE_CASES_THRESHOLD} target organism reads</p>')
         self.output_file.write(f'<p>(?) Prediction is based on amplicon with fewer than {LOW_READ_WARNING} reads</p>')
         self.output_file.write(f'<p><del>AMR Amplicon</del> means no reads were found for this AMR amplicon</p>')
         if add_read_length_flag:
@@ -265,7 +277,7 @@ class ClasssifierReport:
     def _write_gt_suppport(self):
         if len(self.genotypes)==0:
             #either genotype file not provided, or it's empty.
-            self.output_file.write("<div class=header_line>Genotypes summary:<br>genotypes hierarchy file (.json) not provided or is empty</div>\n")
+            self.output_file.write("<div class=header_line>Genotypes summary:<br>model file does not contain genotypes hierarchy</div>\n")
             self._insert_paragraph(2)
             return
 
@@ -281,10 +293,10 @@ class ClasssifierReport:
         for i, label in enumerate(sorted_genotypes_labels):
             row_values=[ self.genotype_row_labels[label] ]
             for sample in [self._clean_sample(f) for f in self.samples]:
-                if sample in self.empty_samples:
-                    row_values.append("n.d.")
-                else:
-                    row_values.append( "S" if  label in self.sample_gts[sample] else "" )
+                # if sample in self.empty_samples:
+                #     row_values.append("n.d.")
+                # else:
+                row_values.append( "S" if  label in self.sample_gts[sample] else "" )
             if i % 2 == 0: #Alternate row colours
                 table_row=OPENER_ALT.replace("<td>",local_opener) + MIDDLE.join([str(f) for f in row_values])+CLOSER
             else:
@@ -343,12 +355,14 @@ class ClasssifierReport:
         for i, result in enumerate(self.results):
             snp_values: List[str] = []
             for known_snp in result.known_snps(self.trained_models[result.amplicon.name].genotype_snps):
-                snp_value="Pos:"+str(known_snp["Pos"])
+                allele_frequency=" ("+'{:.0%}'.format(result.consensus_frequency[known_snp["Pos"]])+") "
+                snp_value="Pos:"+str(known_snp["Pos"]) + allele_frequency
                 snp_value+=", Change:"+result.amplicon.ref_seq.sequence[known_snp["Pos"]] + ">"+known_snp["Nucleotide"]
                 snp_value+=", Implication: "+known_snp["SNP"].get_genotype(known_snp["Nucleotide"])
                 snp_values.append(snp_value)
             for known_snp in result.unknown_snps(self.trained_models[result.amplicon.name].genotype_snps):
-                snp_value="Pos:"+str(known_snp["Pos"])
+                allele_frequency=" ("+'{:.0%}'.format(result.consensus_frequency[known_snp["Pos"]])+") "
+                snp_value="Pos:"+str(known_snp["Pos"]) + allele_frequency
                 snp_value+=", Change:"+result.amplicon.ref_seq.sequence[known_snp["Pos"]] + ">"+known_snp["Nucleotide"]
                 snp_value+=", Implication: Unknown"
                 snp_values.append(snp_value)
