@@ -55,7 +55,7 @@ def classify(temp_dir):
     parser.add_argument('--organism_presence_cutoff', type=float,
                         help='Sample is reported as having target organism if at least this percentage  of non-transient amplicons have >10 reads. Values 0-100.', required=False, default=20.0)
    
-    parser.add_argument('-v', '--version', action='version', version='%(prog)s 0.1.22')
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s 0.1.24')
 
 
     try:
