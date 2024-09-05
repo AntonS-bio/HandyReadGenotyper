@@ -86,6 +86,7 @@ class InputProcessing:
             #print(f'Directory {dir_name} already exists.')
             return False
         return True
+
     
     def check_output_dir(self, address:str) -> str:
         full_address=expanduser(address)

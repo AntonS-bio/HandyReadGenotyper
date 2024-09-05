@@ -25,6 +25,14 @@ def generate_amplicons(model_file: str, fasta_file:str) -> List[Amplicon]:
     return target_regions
 
 def generate_ref_fasta(model_file: str, ref_file: str) -> None:
+    """Output reference FASTA from model file. This FASTA will be used for 
+    mapping of reads and will be removed afterwards
+
+    :param models_file: file name with saved model
+    :type models_file: str
+    :param ref_file: file name to which to save FASTA sequences
+    :type models_file: str
+    """
     with open(model_file, "rb") as input_model:
         models_data: ModelsData = pickle.load(input_model)
         model_manager: Dict[str, Classifier] = models_data.classifiers
@@ -34,6 +42,13 @@ def generate_ref_fasta(model_file: str, ref_file: str) -> None:
             ref_output.write(str(model.nucletoide_seq)+"\n")
 
 def get_postive_reads(results: List[ClassificationResult], target_reads_bams: str):
+        """Output bam files (one per sample) with reads classified as target organism
+        
+        :param results: List of classification results 
+        :type results: List[ClassificationResult]
+        :param target_reads_bams: Directory to which bam files will be saved
+        :type target_reads_bams: str
+        """
         postive_read_ids: Dict[str, List[str]]={}
         for result in results:
             if result.sample not in postive_read_ids:
@@ -122,15 +137,17 @@ def classify(temp_dir):
             return
 
     if not args.target_reads_bams is None:
-        if not input_processing.file_exists(args.target_reads_bams):
-            return
+        if not exists(args.target_reads_bams):
+            mkdir(args.target_reads_bams)
         target_reads_bams=expanduser(args.target_reads_bams)
+
 
     #Map the raw reads or collect bams to classify
     if not args.fastqs is None:
         if not input_processing.file_exists(args.fastqs):
             return
         bams_dir=expanduser(args.bams)
+        print("Starting read mapping to reference")
         mapper=ReadMapper(temp_dir,
                         args.fastqs,
                         model_file, fasta_file, cpu_to_use)
@@ -171,12 +188,9 @@ def classify(temp_dir):
     model_manager=ModelManager(model_file, cpu_to_use)
     results=model_manager.classify_new_data(target_regions, file_to_classify)
 
-    get_postive_reads(results, target_reads_bams)
-    # with open(expanduser("~/HandyReadGenotyper/temp/read_ids.tsv"),"w") as output:
-    #     output.write("File\tAmplicon\tID\n")
-    #     for result in results:
-    #         for read_id in result.positive_read_ids:
-    #             output.write(result.sample+"\t"+result.amplicon.name+"\t"+read_id+"\n")
+    if not args.target_reads_bams is None:
+        get_postive_reads(results, target_reads_bams)
+        generate_ref_fasta(model_file, join(target_reads_bams,"reference.fasta"))
 
     if not args.fastqs is None:
         report=ClasssifierReport(output_file, model_file, args.organism_presence_cutoff, sample_labels, mapping_results=mapper.results)
