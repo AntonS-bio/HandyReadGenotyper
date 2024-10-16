@@ -8,14 +8,14 @@ import json
 def get_reference_fasta(model_file: str) -> None:
     with open(model_file, "rb") as input_model:
         model_manager: Dict[str, Classifier] =load(input_model)
-        for name, model in model_manager.items():
+        for name, model in model_manager.classifiers.items():
             print(">"+str(model.name))
             print(str(model.nucletoide_seq))
 
 def get_snps(model_file: str) -> None:
     with open(model_file, "rb") as input_model:
         model_manager: Dict[str, Classifier] =load(input_model)
-        for name, model in model_manager.items():
+        for name, model in model_manager.classifiers.items():
             for genotype_snp in model.genotype_snps:
                 print(genotype_snp.to_string)
 
@@ -26,33 +26,17 @@ def load_hierarchy(model_file: str, heirarchy_file:str) -> None:
         #     for genotype_snp in model.genotype_snps:
         #         print(genotype_snp.to_string)                
 
-def test(model_file: str) -> None:
-    pass
-    # with open(model_file, "rb") as input_model:
-    #     model_manager: Dict[str, Classifier] =load(input_model)
-    # genotypes={}
-    # genotypes_file="/home/lshas17/HandyReadGenotyper/typhi_data_v3/hierarchy.json"
-    # with open( expanduser(genotypes_file) ) as gt_data:
-    #     genotypes = json.load(gt_data)
-    # models_data: ModelsData = ModelsData()
-    # #models_data.metadata["hierarchy"] = genotypes
-    # for name, model in model_manager.items():
-    #     models_data.classifiers[name]=model
-    # with open("/home/lshas17/HandyReadGenotyper/models/paratyphi_A_v3.pkl", "wb") as output:
-    #     dump(models_data,output)
+def test() -> None:
+    with open(expanduser("~/HandyReadGenotyper/models/typhi_v4.pkl"), "rb") as input_model:
+        model_manager: Dict[str, Classifier] =load(input_model)
+        for name, model in model_manager.classifiers.items():
+            print(">"+str(model.name))
+            print(str(model.nucletoide_seq))
 
-    # transient_amplicons = [line.strip() for line in open(expanduser("~/HandyReadGenotyper/extra_citrobacter_DO_NOT_DELETE/transient_amplicon.txt"))]
-    # print(transient_amplicons)
-    # with open(model_file, "rb") as input_model:
-    #     model_manager: Dict[str, Classifier] =load(input_model)
-    #     for name, model in model_manager.items():
-    #         if name in transient_amplicons:
-    #             print(name)
-    #             model._amplicon_transient=True
-    #         else:
-    #             model._amplicon_transient=False
-    # with open(expanduser("~/HandyReadGenotyper/models/paratyphi_A_v1.pkl"), "wb") as output:
-    #     dump(model_manager,output)
+    # with open(expanduser("~/HandyReadGenotyper/all_amplicons/bams_matrix.pkl"), "rb") as input_matrices:
+    #     raw_data=load(input_matrices)
+    #     a=[amps["tviD_v2::NC_003198.1:4520643-4521463_0_819_tviD_v2"] for sample, amps in raw_data["negative"].items() if "tviD_v2::NC_003198.1:4520643-4521463_0_819_tviD_v2" in amps]
+    #     b=[f for f in a if f.shape[0]>0]
 
 def main():
 
@@ -72,7 +56,7 @@ def main():
         parser.print_help()
         exit(0)
     if args.test:
-        test(expanduser(args.model))
+        test()
     if args.reference or args.snps:
         if args.model is None:
             print("To get reference sequence a model file must be specified!")

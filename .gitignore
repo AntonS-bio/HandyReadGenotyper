@@ -7,6 +7,8 @@ single_amplicon/
 test_scripts/*
 typhi_dat*
 test/
+test_reports/*
+test_bams/*
 typhi_data/
 wo_paratyphi/
 all_amplicons/
@@ -17,6 +19,7 @@ temp*
 map_fastq.sh
 murium.tsv
 DELETE*
+manuscript_data/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

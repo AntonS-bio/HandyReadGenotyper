@@ -203,14 +203,17 @@ class ModelManager:
         with open(self.model_evaluation_file,"w") as temp:
             for name, model in self.trained_models.items():
                 temp.write(name+"\t"+str(model.sensitivity)+"\t"+str(model.specificity)+"\n")
-                if model.not_trained:
-                    temp.write(f'{name}\tNot Trained\tNot Trained' )
-                else:
-                    temp.write(",".join([ key+": "+str(count) for key, count in model.misclassified_inputs.items()]) )
-                temp.write("\n")
+                # if model.not_trained:
+                #     temp.write(f'{name}\tNot Trained\tNot Trained' )
+                # else:
+                #     temp.write(",".join([ key+": "+str(count) for key, count in model.misclassified_inputs.items()]) )
+                # temp.write("\n")
 
+        output = ModelsData()
+        output.classifiers=self.trained_models
+        output.metadata={}
         with open(self._model_output_file, "wb") as model_file:
-            pickle.dump(self.trained_models, model_file)
+            pickle.dump(output, model_file)
 
     def _check_bam_vcf_consistency(self, positive_data, ref_contig) -> List[int]:
         """Checks if the nucletides in VCF of variable positions 

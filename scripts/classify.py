@@ -143,10 +143,10 @@ def classify(temp_dir):
 
 
     #Map the raw reads or collect bams to classify
+    bams_dir=expanduser(args.bams)
     if not args.fastqs is None:
         if not input_processing.file_exists(args.fastqs):
             return
-        bams_dir=expanduser(args.bams)
         print("Starting read mapping to reference")
         mapper=ReadMapper(temp_dir,
                         args.fastqs,
@@ -166,6 +166,9 @@ def classify(temp_dir):
         file_to_classify=input_processing.get_bam_files( args.bams )
         sample_labels: Dict[str, str] = {}
         if not  args.sample_descriptions is None:
+            mapper=ReadMapper(temp_dir,
+                        bams_dir,
+                        model_file, fasta_file, cpu_to_use)
             files_to_check=mapper.output_names(bams_dir)
             if not input_processing.get_sample_labels(metadata_file,metadata_sep, metadata_column, file_to_classify, sample_labels):
                 return #terminate if some sample is not present in metadata.

@@ -48,6 +48,8 @@ class InputProcessing:
             first_line = input_file.readline().strip().split(separator)
             column_index = first_line.index(label_column)
             for line in input_file:
+                if len(line.strip())==0: #The line is empty, likely last line of file.
+                    continue
                 first_column_values[line.strip().split(separator)[0]]=line.strip().split(separator)[column_index]
 
         outcome=True
@@ -75,7 +77,7 @@ class InputProcessing:
                 print(f'Directory {file_name} does not exist. Check the address spelling.')
                 return False
             else:
-                print(f'File {file_name} required directory {dirname(file_name)} which does not exist. Check the address spelling.')
+                print(f'File {file_name} does not exist. Check the address spelling.')
                 return False
         return True
 

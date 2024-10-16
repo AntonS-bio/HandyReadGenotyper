@@ -14,7 +14,7 @@ def main():
     parser.add_argument('-r','--reference', type=str,
                         help='FASTA file with the reference to which reads where mapped', required=True)
     parser.add_argument('-p','--positive_bams', type=str,
-                        help='Directory with or list of NON-target BAM files and corresponding BAM index files (.bai)', required=True)
+                        help='Directory with or list of NON-target BAM files and corresponding BAM index files (.bai)', required=False)
     parser.add_argument('-n','--negative_bams', type=str,
                         help='Directory with or list of TARGET BAM files and corresponding BAM index files (.bai)', required=False)
     parser.add_argument('-v','--vcf', type=str,
@@ -37,10 +37,11 @@ def main():
     cpu_to_use=int(args.cpus)
 
     input_processing=InputProcessing()
-    positive_bams=input_processing.get_bam_files( args.positive_bams )
-    negative_bams=input_processing.get_bam_files( args.negative_bams )
-    if len(positive_bams)==0 or len(negative_bams)==0:
-        exit()
+    if "bams_matrix" not in args:
+        positive_bams=input_processing.get_bam_files( args.positive_bams )
+        negative_bams=input_processing.get_bam_files( args.negative_bams )
+        if len(positive_bams)==0 or len(negative_bams)==0:
+            exit()
 
     bed_file = expanduser(args.target_regions)
     if not input_processing.file_exists(bed_file):

@@ -4,7 +4,7 @@ import warnings
 from typing import Dict, List, Tuple
 import uuid
 from datetime import datetime
-from sklearn.ensemble import VotingClassifier
+from sklearn.ensemble import VotingClassifier, RandomForestClassifier
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
@@ -12,6 +12,13 @@ from sklearn.linear_model import SGDClassifier
 import numpy as np
 import pysam as ps
 from data_classes import Amplicon
+
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.naive_bayes import CategoricalNB
 
 
 base_dic={"A":1,"C":2,"G":3,"T":4,"N":5,"-":0}
@@ -591,13 +598,12 @@ class Classifier:
         '''
         ### Classification
         #clf2 = DecisionTreeClassifier(criterion="entropy")
-        #clf4 = RandomForestClassifier(criterion="log_loss", n_estimators=10, random_state=1)
+        #clf2 = RandomForestClassifier(criterion="log_loss", n_estimators=10, random_state=1)
         #clf2 = SVC(kernel="linear", probability=True, random_state=0)
-
         #clf2 = GaussianNB()
         #clf2=KNeighborsClassifier(n_neighbors=5)
         #clf2=MLPClassifier(learning_rate="adaptive")
-        #clf3=CategoricalNB(min_categories=2)
+        #clf2=CategoricalNB(min_categories=2)
         clf2=SGDClassifier(max_iter=1000, tol=1e-5, loss="log_loss")
 
         eclf = VotingClassifier(
@@ -737,7 +743,15 @@ class ModelsData:
         '''Get the dictionary of classifiers with model names as keys'''
         return self._classifiers
     
+    @classifiers.setter
+    def classifiers(self, value: Dict[str, Classifier]):
+        self._classifiers = value    
+    
     @property
     def metadata(self) -> Dict[str, object]:
         '''Get the dictionary of metadata objects with object names as keys'''
         return self._metadata    
+    
+    @metadata.setter
+    def metadata(self, value: Dict[str, object]):
+        self._metadata = value    
