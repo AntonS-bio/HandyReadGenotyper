@@ -48,6 +48,7 @@ options:
   -n , --negative_bams 
                         Directory with or list of TARGET BAM files and corresponding BAM index files (.bai)
   -v , --vcf            VCF file containing positions that will be excluded from training as well as genotype defining SNPs (also excluded)
+  -s,  --special_cases  Tab delimited file specifying amplicon for which presence/absense should be reported
   -o , --output_dir     Directory for output files
   -m , --bams_matrix    Matrix with precalculated BAM matrices
 
@@ -65,11 +66,11 @@ To run classifier you have to main options. First, if you have already mapped FA
 
 This will classify all BAMs in directory ./bams/ 
 ```
-classify -b ./bams/ -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
+classify -b ./bams/ -m model.pkl -d metadata.tsv -c Description -o report.html
 ```
 This will only classify sample_1.bam
 ```
-classify -b ./bams/sample_1.bam -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
+classify -b ./bams/sample_1.bam -m model.pkl -d metadata.tsv -c Description -o report.html
 ```
 
 
@@ -79,7 +80,7 @@ classify -b ./bams/sample_1.bam -m model.pkl -d metadata.tsv -c Description -g h
 
 If you don't have bams, you can use "-f" option to map FASTQs using minimap2 to the amplicon reference. The command only differs from above by this extra parameter. Not that "-b" is still present - it will be a directory to which the mapped BAMs will be saved. 
 ```
-classify -b ./bams/ -f ./fastqs/ -m model.pkl -d metadata.tsv -c Description -g hierarchy.json -o report.html
+classify -b ./bams/ -f ./fastqs/ -m model.pkl -d metadata.tsv -c Description -o report.html
 ```
 If you look at structure of test_data/fastqs you will see it's a bit odd. It's very difficult to capture all possible ways the FASTQs will be provided, but the most likely one if a result of single run from ONT devices. When working with multiplex sequencing run (most likely use case), an ONT device will create a directory for each barcode and will place multiple FASTQ files for this barcode into that directory. It will likely look like this:
 ```
@@ -120,14 +121,11 @@ options:
   -c , --description_column 
                         Column in sample descriptions file to use to augment samples descriptions
   --column_separator    The column separator for the sample descriptions file, default=tab
-  -g , --genotypes_hierarchy
-                        JSON file with genotypes hierarchy
   --cpus                Number of CPUs to use, default=1
+  --target_reads_bams   Directory to which to write reads classified as target organism
   -s, --max_soft_clip   Specifies maximum permitted soft-clip (length of read before first and last mapped bases) of mapped read.
   -l, --max_read_len_diff
                         Specifies maximum nucleotide difference between mapped portion of read and target amplicon.
-  --organism_presence_cutoff
-                        ample is reported as having target organism if at least this % of non-transient amplicons have >10 reads. Values 0-100.
 
 ```
 Here is illustration of options -s and -l where "-" below is a nuclotide and " " is a gap in alignment.
@@ -143,7 +141,7 @@ Options -l allows the aligned portion of read to be shorter or longer than refer
 
 ### Understanding results
 
-![image](https://github.com/user-attachments/assets/26c17021-98bf-4586-b09b-9ca795df7143)
+![GitHub image](https://github.com/user-attachments/assets/5fd6d0e4-b6f2-40e6-94f0-cc750c8ee6a7)
 
 
 
@@ -152,22 +150,17 @@ The summary of results consists of the following fields:
 
 A) the name of the model file used and the date that model was trained.
 
-B) The default 20.0% number can be changed using "--organism_presence_cutoff" option. It is used in (C)
+B) A diagram of how many amplicons have a certain number of SNPs in consensus sequence. The position of the number indicates the number of SNPs and the number itself - the number of amplicons. In first sample, 3 amplicons have 0 SNPs (0th place), and 1 amplicon has 2 SNPs (third place). In the second sample, 12 amplicons have 0 SNPs (0th place) and 2 amplicons has 1 SNP (second place). This simultaneously shows the presence of products and identified possible off-target amplification.
 
-C) Yes/No field that reports presence of target organism. The outcome is determined by % of amplicons in the sample that have >10 reads from target organism. **IMPORTANT Some amplicons (eg. plasmid ones) are not expected to be present in all positive samples. These 
-amplicons are ignored for calculating the presence of target organism. These amplicons are not currently flagged in report, but will be in future versions**
+C) List of genotype alleles identified in the amplicons. The number in brackets indicates percentage of reads (read depth) that support the genotype assignment. Sometimes, a reference position that is linked to specific genotype has unexpected nucleotide. This is reported as "Unknown allele at known position".
 
-D) List of genotype alleles identified in the amplicons. Sometimes, a reference position that is linked to specific genotype has unexpected nucleotide. This is reported as "Unknown allele at known position".
+D) List of AMR linked alles idenfitied in the amplicons. The number in brackets indicates percentage of reads (read depth) that support the genotype assignment. In cases where genotype is based on presence/absence of amplicon (eg. S. Typhi PST6 plasmid) the amplicon name will be reported here if detected..
 
-E) List of AMR linked alles idenfitied in the amplcions. At present, in cases where presence of amplicon is indicative of some AMR profile (eg. S. Typhi PST6 plasmid) these are **not** reported in field (E). This will change in the future.
+E) When classification was done from FASTQ files, this show the total number of reads in each sample.
 
-F) A diagram of how many amplicons have a certain number of SNPs in consensus sequence - each par is one amplicon. In first sample, 4 amplicons have 0 SNPs, and 1 amplicon has 2 SNPs. In the second sample, 5 amplicons has 0 SNPs and 2 amplicons has 1 SNP. This simultaneously shows the presence of products and identified possible off-target amplification.
+F) This shows the total number of reads that mapped to some amplicon and also were of correct length taking options "-s" and "-l" into account. 
 
-G) When classification was done from FASTQ files, this show the total number of reads in each sample.
-
-H) This shows the total number of reads that mapped to some amplicon and also were of correct length taking options "-s" and "-l" into account. 
-
-I) This is number of reads of wrong length. Note that normally, not all reads are mapped, so H + I <> G
+G) This is number of reads of wrong length. Note that normally, not all reads are mapped, so H + I <> G
 
 The rest of repot contains details on each sample as well as each sample's amplicon and these can be jumped to via hyperlinks in the report file.
 
