@@ -1,6 +1,5 @@
 from collections import Counter
 from os.path import exists
-import warnings
 from typing import Dict, List, Tuple
 import uuid
 from datetime import datetime
@@ -24,11 +23,8 @@ from sklearn.naive_bayes import CategoricalNB
 base_dic={"A":1,"C":2,"G":3,"T":4,"N":5,"-":0}
 number_dic=dict([ (value, key) for key,value in base_dic.items() ])
 
-
-
-
 class GenotypeSNP:
-    UNINFORMATIVE_ALLLE="uninformative"
+    UNINFORMATIVE_ALLELE="known, but uninformative allele"
 
     """Contains information on genotypes implied by alleles
 
@@ -77,8 +73,8 @@ class GenotypeSNP:
             if result!="":
                 result+="\n"
             allele_type = ""
-            if genotype==self.UNINFORMATIVE_ALLLE:
-                allele_type=self.UNINFORMATIVE_ALLLE
+            if genotype==self.UNINFORMATIVE_ALLELE:
+                allele_type=self.UNINFORMATIVE_ALLELE
             elif self.is_amr:
                 allele_type="AMR"
             else:
@@ -99,7 +95,7 @@ class GenotypeSNP:
         if allele in self._genotypes:
             return self._genotypes[allele]
         else:
-            return GenotypeSNP.UNINFORMATIVE_ALLLE
+            return GenotypeSNP.UNINFORMATIVE_ALLELE
 
     def add_genotype(self, allele: str, genotype: str=None) -> None:
         """Contains information on genotypes implied by alleles
@@ -109,7 +105,7 @@ class GenotypeSNP:
         :param genotype: genotype implied by the allele
         :type genotype: str
         """
-        self._genotypes[allele]=genotype if not genotype is None else GenotypeSNP.UNINFORMATIVE_ALLLE
+        self._genotypes[allele]=genotype if not genotype is None else GenotypeSNP.UNINFORMATIVE_ALLELE
 
     def add_from_vcf(self, vcf_line: str) -> None:
         '''Add genotype from VCF line
@@ -187,7 +183,7 @@ class ReadsMatrix:
             for i,read in enumerate(bam.fetch(contig=target_contig, start=target_start, end=target_end)):
                 if not read.is_unmapped:
                     if read.query_sequence is None:
-                        warnings.warn(f'Bam file {self.bam_file} has an empty read aligning to {target_amplicon.name} this should not happen')
+                        print(f'Bam file {self.bam_file} has an empty read aligning to {target_amplicon.name} this should not happen')
                         continue
                     #allows for soft clippping on both sides (first line), reads shorter than target (second line), reads longer than target (third line)
                     if ReadsMatrix.train_mode and (read.get_aligned_pairs(matches_only=True)[-1][0] < target_end - 10 \
@@ -210,7 +206,7 @@ class ReadsMatrix:
                                 read_ref_pair[1]<target_end and read_ref_pair[1]>=target_start and not read_ref_pair[0] is None]
                     bases=set([ read.query_sequence[f] for f in query_nt])
                     if True in [f not in base_dic for f in bases]:
-                        warnings.warn(f'Ambigous bases not supported: {self.bam_file} target {target_amplicon.name}. Target will be ignored')
+                        print(f'Ambigous bases not supported: {self.bam_file} target {target_amplicon.name}. Target will be ignored')
                         break
 
                     alignment_matrix[i, ref_nt]=[ base_dic[read.query_sequence[f]] for f in query_nt]
@@ -230,69 +226,22 @@ class ClassificationResult:
     def __init__(self, amplicon: Amplicon, sample: str) -> None:
         self._amplicon: Amplicon=amplicon
         self._consensus=""
-        self._mismatches={}
         self._predicted_classes=None
         self._sample=sample
         self._model_fingerprint=""
         self._model_timestamp=""
         self._wrong_len_reads: Dict[str, int]={}
         self._read_ids: List[str] = []
+        self._allele_frequencies: List[List[Tuple]] = []
 
     def get_consensus(self, data: np.array) -> str:
-        most_common=np.apply_along_axis( lambda x: Counter(x).most_common(1)[0][0], axis=0,  arr=data  )
-        most_common_frequency=np.apply_along_axis( lambda x: Counter(x).most_common(1)[0][1], axis=0,  arr=data  )
-        self.consensus_frequency=[f/data.shape[0] for f in most_common_frequency]
-        self.consensus="".join([number_dic[f] for f in most_common  ])
+        if data.shape[0]>0:
+            self._allele_frequencies=list(map( lambda x: Counter(x).most_common(), np.transpose(data) ))
+            most_common=[f[0][0] for f in self._allele_frequencies]
+            most_common_frequency=[f[0][1] for f in self._allele_frequencies]
+            self.consensus_frequency=[f/data.shape[0] for f in most_common_frequency]
+            self.consensus="".join([number_dic[f] for f in most_common  ])
         return self.consensus
-
-
-
-    def calculate_genotype(self, genot_snps:List[GenotypeSNP], min_positive_reads: int, with_frequency:bool=True) -> Tuple[str, bool]: #Genotype name and boolean for AMR (True/False)
-        result=""
-        snp_is_amr=False
-        for pos, alt in self._mismatches.items():
-            known_alleles = [f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
-            if len(known_alleles)>0 :
-                snp_is_amr = known_alleles[0].is_amr
-                suffux = "(?)" if self.positive_cases<min_positive_reads else ""
-                if with_frequency:
-                    allele_frequency=" ("+'{:.0%}'.format(self.consensus_frequency[pos])+") "
-                else:
-                    allele_frequency=""
-                if alt in known_alleles[0].genotypes:
-                    addition =  known_alleles[0].genotypes[alt]+allele_frequency+suffux
-                else:
-                    addition = f'Unknown allele at known position: {pos}'+allele_frequency+suffux
-                result=result + ", " if result!="" else "" + addition
-        return (result, snp_is_amr)
-    
-
-    
-    def num_unknown_snps(self, genot_snps:List[GenotypeSNP]) -> int:
-        result=0
-        for pos, alt in self._mismatches.items():
-            known_alleles=[f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
-            if len(known_alleles)==0 :
-                result+=1
-        return result
-
-    def unknown_snps(self, genot_snps:List[GenotypeSNP]) -> Dict[int, str]:
-        result: List[GenotypeSNP] = []
-        for pos, alt in self._mismatches.items():
-            known_alleles=[f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
-            if len(known_alleles)==0 :
-                result.append( {"Pos": pos,"Nucleotide": alt} )
-        return result
-
-    def known_snps(self, genot_snps:List[GenotypeSNP]) -> List[GenotypeSNP]:
-        result: List[GenotypeSNP] = []
-        for pos, alt in self._mismatches.items():
-            known_alleles=[f for f in genot_snps if f.position==pos and f.contig_id==self._amplicon.ref_contig]
-            if len(known_alleles)==1:
-                result.append( {"Pos": pos,"Nucleotide": alt, "SNP": known_alleles[0]} )
-            elif len(known_alleles)>1:
-                raise ValueError(f'Allele {alt} at {self._amplicon.ref_contig} pos {str(pos)} implies more than one genotype, check VCF supplied at training!')
-        return result
 
     #region
     @property
@@ -363,7 +312,6 @@ class ClassificationResult:
 
     @consensus.setter
     def consensus(self, value: str):
-        self._mismatches=dict([ (pos,alt) for ref, alt, pos in zip(self.amplicon.seq, value, range(0,len(value))) if ref!=alt ])
         self._consensus = value
 
     @property
@@ -386,23 +334,8 @@ class ClassificationResult:
             return True
     @property
     def num_mismatches(self) -> int:
-        return len(self._mismatches)
+        return len(self.mismatches)
 
-    # def result_description(self, genotype_snps: List[GenotypeSNP]=None) -> str:
-    #     prefix=f'Total {len(self.predicted_classes)} mapping reads of which '+"{:.0%}".format(Counter(self.predicted_classes)[1]/len(self.predicted_classes))+' are from target organism. \n'
-    #     if self.num_mismatches==0:
-    #         return f'{self.amplicon.name}: {prefix} Consensus is identical to reference'
-    #     else:
-    #         if genotype_snps is None:
-    #             genotypes="No genotype SNPs provided"
-    #         else:
-    #             gts=self.calculate_genotype(genot_snps=genotype_snps)
-    #             if gts[1]:
-    #                 genotypes="SNPs from AMR genotypes: "+self.calculate_genotype(genot_snps=genotype_snps)[0]
-    #             else:
-    #                 genotypes="SNPs from genotypes: "+self.calculate_genotype(genot_snps=genotype_snps)[0]
-    #         snps=",".join([f'{str(pos+1)}:{self.amplicon.seq[pos]}->{alt}' for pos, alt in self._mismatches.items()])
-    #         return f'{self.amplicon.name}: {prefix} Total SNPs: {self.num_mismatches}, {genotypes}, Mismatched alleles: {snps}'
     
     #endRegion
 
