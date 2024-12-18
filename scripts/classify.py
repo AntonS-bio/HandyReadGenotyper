@@ -5,7 +5,7 @@ import pickle
 from os.path import  expanduser, join, exists, basename
 from os import mkdir
 from shutil import which, rmtree
-import uuid 
+import uuid
 import asyncio
 from check_for_update import UpdateChecker
 from data_classes import Amplicon
@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 from map import ReadMapper
 import pysam as ps
 
-VERSION="0.1.24"
+VERSION="0.1.25"
 
 def generate_amplicons(model_file: str, fasta_file:str) -> List[Amplicon]:
     target_regions: List[Amplicon] = []
