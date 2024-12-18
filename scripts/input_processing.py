@@ -2,7 +2,6 @@ from typing import List, Tuple, Dict
 from os.path import expanduser, isdir, exists, dirname, join, split
 from os import listdir, mkdir
 from pathlib import Path
-import warnings
 
 class InputProcessing:
 
@@ -55,7 +54,7 @@ class InputProcessing:
         outcome=True
         for file in bam_files:
             if Path(file).stem not in first_column_values:
-                warnings.warn(f'BAM derived sample name "{Path(file).stem}" not found in first column of metadata file.')
+                print(f'BAM derived sample name "{Path(file).stem}" not found in first column of metadata file.')
                 outcome=False
             else:
                 sample_labels[Path(file).stem]=first_column_values[Path(file).stem]

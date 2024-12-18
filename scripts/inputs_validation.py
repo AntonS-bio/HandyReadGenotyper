@@ -3,7 +3,6 @@
 
 from os.path import exists
 from os import listdir
-import warnings
 from tqdm import tqdm
 from typing import Set
 from Bio import SeqIO
@@ -83,7 +82,7 @@ class ValidateFiles:
             for line in fasta_file:
                 if line[0]!=">":
                     if line.find("-")>-1:
-                        warnings.warn(f'Fasta file {fasta_file_name} has "-". This is likely to cause problems')
+                        print(f'Fasta file {fasta_file_name} has "-". This is likely to cause problems')
                         return True
         return False
     
@@ -114,7 +113,7 @@ class ValidateFiles:
             for line in (bed_file):
                 bed_contigs.add(line.split("\t")[0])
         if len(bed_contigs)==0:
-            warnings.warn(f'Bed file {bed_file_name} is empty')
+            print(f'Bed file {bed_file_name} is empty')
             return True
         
         vcf_contigs=set()
@@ -126,10 +125,10 @@ class ValidateFiles:
                     if contig_id in bed_contigs:
                         return True
         if len(vcf_contigs)==0:
-            warnings.warn(f'VCF file {vcf_file_name} had no variants (i.e. no lines that do not start with #)')
+            print(f'VCF file {vcf_file_name} had no variants (i.e. no lines that do not start with #)')
             return True
         else:
-            warnings.warn("\n"+f'None of the contigs in VCF file {vcf_file_name} are present in bedfile {bed_file_name}')
+            print("\n"+f'None of the contigs in VCF file {vcf_file_name} are present in bedfile {bed_file_name}')
             return False
 
     def validate_vcf(self, vcfs_dir: str) -> None:

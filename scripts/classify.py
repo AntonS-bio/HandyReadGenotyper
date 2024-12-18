@@ -6,13 +6,19 @@ from os.path import  expanduser, join, exists, basename
 from os import mkdir
 from shutil import which, rmtree
 import uuid 
+import asyncio
+from check_for_update import UpdateChecker
 from data_classes import Amplicon
 from input_processing import InputProcessing
 from model_manager import ModelManager
 from classifier_report import ClasssifierReport
 from read_classifier import Classifier, ReadsMatrix, ModelsData, ClassificationResult
+import warnings
+warnings.filterwarnings("ignore")
 from map import ReadMapper
 import pysam as ps
+
+VERSION="0.1.24"
 
 def generate_amplicons(model_file: str, fasta_file:str) -> List[Amplicon]:
     target_regions: List[Amplicon] = []
@@ -42,32 +48,31 @@ def generate_ref_fasta(model_file: str, ref_file: str) -> None:
             ref_output.write(str(model.nucletoide_seq)+"\n")
 
 def get_postive_reads(results: List[ClassificationResult], target_reads_bams: str):
-        """Output bam files (one per sample) with reads classified as target organism
-        
-        :param results: List of classification results 
-        :type results: List[ClassificationResult]
-        :param target_reads_bams: Directory to which bam files will be saved
-        :type target_reads_bams: str
-        """
-        postive_read_ids: Dict[str, List[str]]={}
-        for result in results:
-            if result.sample not in postive_read_ids:
-                postive_read_ids[result.sample]=[]
-            for read_id in result.positive_read_ids:
-                postive_read_ids[result.sample].append(read_id)
+    """Output bam files (one per sample) with reads classified as target organism
+    
+    :param results: List of classification results 
+    :type results: List[ClassificationResult]
+    :param target_reads_bams: Directory to which bam files will be saved
+    :type target_reads_bams: str
+    """
+    postive_read_ids: Dict[str, List[str]]={}
+    for result in results:
+        if result.sample not in postive_read_ids:
+            postive_read_ids[result.sample]=[]
+        for read_id in result.positive_read_ids:
+            postive_read_ids[result.sample].append(read_id)
 
-        for sample, ids in postive_read_ids.items():
-            bam = ps.AlignmentFile(sample, "rb",check_sq=False)
-            output_file=join(target_reads_bams,basename(sample))
-            target_reads_bam=ps.AlignmentFile( output_file, "wb", template=bam)
-            for read in bam.fetch():
-                if read.query_name in ids:
-                    target_reads_bam.write(read)
-            target_reads_bam.close()
-            subprocess.run(f'samtools index {output_file} {output_file+".bai"}', shell=True, executable="/bin/bash", stdout=subprocess.PIPE,  stderr=subprocess.PIPE)
+    for sample, ids in postive_read_ids.items():
+        bam = ps.AlignmentFile(sample, "rb",check_sq=False)
+        output_file=join(target_reads_bams,basename(sample))
+        target_reads_bam=ps.AlignmentFile( output_file, "wb", template=bam)
+        for read in bam.fetch():
+            if read.query_name in ids:
+                target_reads_bam.write(read)
+        target_reads_bam.close()
+        subprocess.run(f'samtools index {output_file} {output_file+".bai"}', shell=True, executable="/bin/bash", stdout=subprocess.PIPE,  stderr=subprocess.PIPE)
 
-def classify(temp_dir):
-
+def get_arguments():
     parser = argparse.ArgumentParser(description='Classify reads in BAM file using existing model or train a model from bam files')
     parser.add_argument('-f','--fastqs', type=str,
                         help='Directory with ONT run results or individual FASTQ file', required=False)
@@ -81,27 +86,29 @@ def classify(temp_dir):
                         help='Column in sample description file to use to augmnet samples descriptions', required=False)
     parser.add_argument('--column_separator',  type=str,
                         help='The column separator for the sample descriptions file', required=False, default="\t")
-    #parser.add_argument('-g','--genotypes_hierarchy', type=str, help='JSON file with genotypes hierarchy', required=False)
     parser.add_argument('--cpus', type=int, help='Number of CPU cores to use', required=False, default=1)
     parser.add_argument('-o','--output_file', type=str,
                         help='File to store classification results', required=True)
     parser.add_argument('--target_reads_bams', type=str,
-                        help='Directory to which to write reads classified as target organism', required=False)
+                        help='Directory to which to write reads classified as target organism. Using this will substantially increase run time.', required=False)
     parser.add_argument('-s', '--max_soft_clip', type=int,
                         help='Specifies maximum permitted soft-clip (length of read before first and last mapped bases) of mapped read', required=False, default=25)
     parser.add_argument('-l', '--max_read_len_diff', type=int,
                         help='Specifies maximum nucleotide difference between mapped portion of read and target amplicon', required=False, default=10)
     parser.add_argument('--organism_presence_cutoff', type=float,
-                        help='Sample is reported as having target organism if at least this percentage  of non-transient amplicons have >10 reads. Values 0-100.', required=False, default=20.0)
+                        help='Currently not in use', required=False, default=20.0)
    
-    parser.add_argument('-v', '--version', action='version', version='%(prog)s 0.1.24')
-
+    parser.add_argument('-v', '--version', action='version', version='%(prog)s '+VERSION)
 
     try:
         args = parser.parse_args()
     except Exception as e:
         parser.print_help()
         return
+
+    return args
+
+async def classify(temp_dir, args):
 
     mkdir(temp_dir)
 
@@ -114,7 +121,7 @@ def classify(temp_dir):
 
     #check minimap2 is installed
     if which("minimap2") is None:
-        print(f'Missing minimap2 program. It is available via Bioconda.')
+        print(f'Missing minimap2 program. It is available via Bioconda. Exiting.')
         return
 
     cpu_to_use=int(args.cpus)
@@ -122,7 +129,9 @@ def classify(temp_dir):
     input_processing=InputProcessing()
 
     model_file = args.model
-
+    if not exists(model_file):
+        print(f'Could not located model file {model_file}. Exiting.')
+        return
 
     fasta_file = join(temp_dir,"reference.fasta")
     generate_ref_fasta(model_file, fasta_file)
@@ -169,7 +178,6 @@ def classify(temp_dir):
             mapper=ReadMapper(temp_dir,
                         bams_dir,
                         model_file, fasta_file, cpu_to_use)
-            files_to_check=mapper.output_names(bams_dir)
             if not input_processing.get_sample_labels(metadata_file,metadata_sep, metadata_column, file_to_classify, sample_labels):
                 return #terminate if some sample is not present in metadata.
 
@@ -180,12 +188,6 @@ def classify(temp_dir):
 
     output_file=input_processing.check_output_dir(args.output_file)
 
-    # if not args.genotypes_hierarchy is None:
-    #     if not input_processing.file_exists(args.genotypes_hierarchy):
-    #         return
-
-
-
     target_regions: List[Amplicon] = generate_amplicons(model_file, fasta_file)
 
     model_manager=ModelManager(model_file, cpu_to_use)
@@ -195,21 +197,31 @@ def classify(temp_dir):
         get_postive_reads(results, target_reads_bams)
         generate_ref_fasta(model_file, join(target_reads_bams,"reference.fasta"))
 
+    print("Generating report")
+    length_parameters={"-s": ReadsMatrix.permitted_read_soft_clip, "-l":ReadsMatrix.permitted_mapped_sequence_len_mismatch}
     if not args.fastqs is None:
-        report=ClasssifierReport(output_file, model_file, args.organism_presence_cutoff, sample_labels, mapping_results=mapper.results)
+        report=ClasssifierReport(output_file, model_file, args.organism_presence_cutoff, length_parameters, sample_labels, mapping_results=mapper.results)
     else:
-        report=ClasssifierReport(output_file, model_file, args.organism_presence_cutoff, sample_labels)
+        report=ClasssifierReport(output_file, model_file, args.organism_presence_cutoff, length_parameters, sample_labels)
     report.create_report(results)
     rmtree(temp_dir)
+    print("Done")
     
-def main():
+async def main():
     temp_dir=expanduser( join("./",str(uuid.uuid4())) )
     try:
-        classify(temp_dir)
+        input_arguments=get_arguments()
+        checker=UpdateChecker(input_arguments.model)
+        #await asyncio.gather(classify(temp_dir, input_arguments))
+        await asyncio.gather(checker.get_result(VERSION), classify(temp_dir, input_arguments))
+        print("\n"+checker.result)
+
     except Exception as e:
        print(e)
     if exists(temp_dir): #clean up
         rmtree(temp_dir)
 
 if __name__=="__main__":
-    main()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+

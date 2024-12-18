@@ -4,6 +4,7 @@ from typing import List
 from inputs_validation import ValidateFiles
 from data_classes import Amplicon
 from model_manager import ModelManager
+from read_classifier import ReadsMatrix
 from input_processing import InputProcessing
 
 def main():
@@ -25,7 +26,7 @@ def main():
                         help='Directory for output files', required=True)
     parser.add_argument('--cpus', type=int,
                         help='Directory for output files', required=False, default=1)
-    parser.add_argument('-m', '--bams_matrix',  type=str, default="",
+    parser.add_argument('-m', '--bams_matrix',  type=str, default=None,
                         help='Matrix with precalculated BAM matrices ()', required=False)
 
     try:
@@ -37,8 +38,9 @@ def main():
     cpu_to_use=int(args.cpus)
 
     input_processing=InputProcessing()
-    if "bams_matrix" not in args:
+    if args.bams_matrix is None:
         positive_bams=input_processing.get_bam_files( args.positive_bams )
+        print(positive_bams)
         negative_bams=input_processing.get_bam_files( args.negative_bams )
         if len(positive_bams)==0 or len(negative_bams)==0:
             exit()
@@ -61,7 +63,7 @@ def main():
     model_quality_file=f'{output_dir}/quality.tsv'
 
     use_existing_bams_matrix=False
-    if args.bams_matrix!="":
+    if not args.bams_matrix is None:
         use_existing_bams_matrix=True
         matrix_file=expanduser(args.bams_matrix)
         if not input_processing.file_exists(matrix_file):
@@ -84,12 +86,14 @@ def main():
     model_manager=ModelManager(model_file, cpu_to_use)
     model_manager.model_evaluation_file=model_quality_file
     model_manager.load_genotype_snps(vcf_file)
+    ReadsMatrix.permitted_read_soft_clip=2000
+    ReadsMatrix.permitted_mapped_sequence_len_mismatch=5
     if use_existing_bams_matrix:
         model_manager.train_from_existing_matrices(target_regions=target_regions, matrices_file=matrix_file)
     else:
         model_manager.train_from_bams(target_regions, positive_bams, negative_bams, matrix_file)
-        
-    
+
+
 
 if __name__=="__main__":
     main()

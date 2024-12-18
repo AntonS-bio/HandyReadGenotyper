@@ -1,14 +1,12 @@
 from collections import Counter
 from os.path import exists, basename, dirname, isdir
-import warnings
 from multiprocessing import Pool
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set
 import pickle
 from tqdm import tqdm
 import numpy as np
 from read_classifier import ReadsMatrix, Classifier, ClassificationResult, number_dic, GenotypeSNP, ModelsData
 from data_classes import Amplicon
-from datetime import datetime
 import hashlib
 
 class ModelManager:
@@ -234,7 +232,7 @@ class ModelManager:
             vcf_nucleotides=[f.reference_nucl for f in self._genotype_snps if f.contig_id==ref_contig]
             mismatches=[a==f for a, f in zip(vcf_nucleotides,postive_matrix_nucleotides)]
             if False in mismatches:
-                warnings.warn(f'VCF nucleotides do not match dominant nucleotide in positive BAMs, contig: {ref_contig}: {postive_matrix_nucleotides} vs {vcf_nucleotides}')
+                print(f'VCF nucleotides do not match dominant nucleotide in positive BAMs, contig: {ref_contig}: {postive_matrix_nucleotides} vs {vcf_nucleotides}')
         return columns_to_exclude
 
     def _process_bams(self, bam_file: str,) -> ReadsMatrix:
@@ -285,9 +283,7 @@ class ModelManager:
             self.models_data: ModelsData = pickle.load(model_file)
             self.trained_models=self.models_data.classifiers
 
-        #print("Loading file: "+bam_file)
         reads_data: ReadsMatrix=self._process_bams(bam_file)
-        #print("Classifying data: "+bam_file)
 
         results: List[ClassificationResult] = []
         for amplicon in self._target_regions:
@@ -303,9 +299,7 @@ class ModelManager:
             classification.model_fingerprint=relevant_model.uuid()
             classification.model_timestamp=relevant_model.training_timestamp()
             classification._wrong_len_reads=reads_data.wrong_len_reads
-            if Counter(classification.predicted_classes)[1]>5:
-                classification.get_consensus(reads[classification.predicted_classes==1])
-                #print(classification.result_description(relevant_model.genotype_snps)) #this doesn't work well in parallelised version.
+            classification.get_consensus(reads[classification.predicted_classes==1])
             results.append(classification)
         del reads_data
         return results
@@ -325,10 +319,7 @@ class ModelManager:
         results: List[ClassificationResult] = []
         if __name__ == 'model_manager':
             with Pool(self.cpus_to_use) as p:
-                with tqdm(total=len(bam_files)) as progress_meter:
-                        predictions: List[ClassificationResult] = list(tqdm( p.imap(func=self._classify_new_data_helper, iterable=bam_files), total=len(bam_files) ))
-                        #predictions: List[ClassificationResult]=p.map(self._classify_new_data_helper, bam_files)
-                        #progress_meter.update(1)
-                        results = [k for f in predictions for k in f]
+                predictions: List[ClassificationResult] = list(tqdm( p.imap(func=self._classify_new_data_helper, iterable=bam_files), total=len(bam_files) ))
+                results = [k for f in predictions for k in f]
         return results
 

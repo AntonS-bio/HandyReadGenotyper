@@ -3,6 +3,11 @@
       html * {
         font-family: arial;
       }
+	.help-icon {
+	content: url(data:image/gif;base64,iVBORw0KGgoAAAANSUhEUgAAACUAAAAjCAIAAACcpVRJAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAGNSURBVFhHxZU7boNAFEWz5KyDMkugYA0WRXooESWSW4RE5548Zq7HzJ3/SI6vTuO8z4mHIfk6svP98xsCHRlJ+2h1HMyEE/PRrnww70vQRytKwRYnHh9Nappu7pfHuqNHRT5u/Tg3TrMBjZewjwZOuvtkaTxZl6AVHc9YPmoVmtuGWjL71jrjGjSovHzUdJIv09nvyW8Z8c0TKiaP6Ta8Nqonisoz6zhcNrxA2fioLDSjvSvwu3PbkTjVkG/o7avYd9Rg4GOYbtQAdPX0UUFhbwk/GKFd0KUT8glSDfnyoZN4s895YSInr3z0oyKcy3Icy0w9RLVvaJ2XIXI5DXU+fmYqWxs+SUOFzycL/zEjin10+89E3xai0NfdV0gQ+c/APVHKfHwhC2VCmc8+zNxndqXofbdvSslj08jQJ3wSKryJf/VpEXwSKvuoP0+MfNInoSaHSh/6VSyfhFptanxofoZ9Ehq4UOxD5yUen4TG6sAuO36fDs3ng3lfYj4d2hUHM+GkfSa0+go6kjmOP/BCFUG6Xal8AAAAAElFTkSuQmCC) ;
+	width: 15;
+	height: 15;
+	}	  
     <style type="text/css">
     .table_header {
         font-weight: bold;
