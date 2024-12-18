@@ -1,10 +1,10 @@
-# HandyReadGenotyper
+# AmpliconTyper
 Tool for genotyping Oxford Nanopore amplicon sequencing data
 
 ## Purpose
 This tool is intended to be used with a partner HandyAmpliconTool which helps to design primers for environmental surveillance. The partner tools designs primers for specific genotypes (based on SNPs unique to those genotypes) while minimising risk of amplyfing other DNA that might be present in the environment.
 
-This tool, HandyReadGenotyper, has two modes: 
+This tool, AmpliconTyper, has two modes: 
     1. Train a classification model using existing Nanopore data - this can be your own data, data from genomic repositories (ENA, NCBI, DDBJ) or a mix of these
     2. Classify ONT sequencing data using the model trained in (1)
 
@@ -13,15 +13,15 @@ This tool, HandyReadGenotyper, has two modes:
 ## Setup
 The easiest way to setup the tool is to use conda or mamba. If you are using macOS or Linux, you can install via command line. If you are using Windows 10+, the best option is to setup Windows Subsystem Linux (WSL) first which will give you access to Linux functionality from you Windows system. After that, you can use conda or mamba.
 
-The best practice is to install packages in dedicated environment to avoid software conflicts. To create new environment and install HandyReadGenotyper into it use:
+The best practice is to install packages in dedicated environment to avoid software conflicts. To create new environment and install AmpliconTyper into it use:
 ```
-conda create --name  hrgENV -c bioconda -c conda-forge handyreadgenotyper
+conda create --name  hrgENV -c bioconda -c conda-forge amplicontyper
 ```
 Once installed, use
 ```
 conda activate hrgENV
 ```
-to activate the environment. Now you are ready to use the HandyReadGenotyper. You would need to run activation command (but not create command) every time you start a new terminal. In both commands above "hrgENV" can be replaced with whatever you want to call the environment. 
+to activate the environment. Now you are ready to use the AmpliconTyper. You would need to run activation command (but not create command) every time you start a new terminal. In both commands above "hrgENV" can be replaced with whatever you want to call the environment. 
 
 
 
@@ -29,9 +29,9 @@ to activate the environment. Now you are ready to use the HandyReadGenotyper. Yo
 ## Model training
 If you have been given a model pickle file - you don't have to do this, so go to Read Classification section. If you haven't been given one, ask if anyone on your project already has it - chances are bioinformatician does. There are some models in this repository in "models" directory. These are versioned and maintained. You need to be sure you are using the right model for you set of amplicons.
 
-The idea of training is that to distinguish target and non-target organism, HandyReadGenotyper needs to see a lot of examples of amplicon sequencing data from both. The examples of target organisms should be fairly easy to find - your own sequencing data should work. For non-target organism, you probably won't be able to generate sufficient data yourself, so you have to rely on public data. SRA database at NCBI is a good source. I recommend finding taxa for your target organism/serovar/strain and taking all available ONT sequencing data within two-three taxonomic layers above. For example, if you are looking at Salmonella, you may decide to take all ONT data from all taxa within Enterobacterales. Once raw ONT data is mapped to FASTQs these will be your negative BAMs. If in your test sequencing runs you often see an off-target amplification of same organism, add it to a negative set.
+The idea of training is that to distinguish target and non-target organism, AmpliconTyper needs to see a lot of examples of amplicon sequencing data from both. The examples of target organisms should be fairly easy to find - your own sequencing data should work. For non-target organism, you probably won't be able to generate sufficient data yourself, so you have to rely on public data. SRA database at NCBI is a good source. I recommend finding taxa for your target organism/serovar/strain and taking all available ONT sequencing data within two-three taxonomic layers above. For example, if you are looking at Salmonella, you may decide to take all ONT data from all taxa within Enterobacterales. Once raw ONT data is mapped to FASTQs these will be your negative BAMs. If in your test sequencing runs you often see an off-target amplification of same organism, add it to a negative set.
 
-Once you have mapped the the sequencing data you've amassed to reference amplicons, you can train your model. The training process is quick, but generating BAM files for it can take several days. This is not related to HandyReadGenotyper, but to volume of data you need to process. However, training only needs to be done once and the "train" function itself below should take fewer than 10 minutes to run. It will generate a model file that you can share with colleagues to avoid them having to train the model.
+Once you have mapped the the sequencing data you've amassed to reference amplicons, you can train your model. The training process is quick, but generating BAM files for it can take several days. This is not related to AmpliconTyper, but to volume of data you need to process. However, training only needs to be done once and the "train" function itself below should take fewer than 10 minutes to run. It will generate a model file that you can share with colleagues to avoid them having to train the model.
 
 ```
 usage: train -t  -r  -p  -v  -o  [-m] [-h] [-n] 
@@ -102,7 +102,7 @@ Run_20
 ```
 Normally, you'd need to merge the the files from each barcode before mapping, but HandyReadGenotype will do it for you.
 
-**IMPORTANT if HandyReadGenotyper is doing the mapping, it will call each output BAM by the name with corresponding barcode (ex. barcode2.bam), this may overwrite some old BAMs**
+**IMPORTANT if AmpliconTyper is doing the mapping, it will call each output BAM by the name with corresponding barcode (ex. barcode2.bam), this may overwrite some old BAMs**
 
 Neither the metadata file (-d), nor genotypes hierarchy (-g) are required, but you probably already have them and they substantially enrich the classification report, so it's worth using them. The metadata file is simply a delimited file that lists the samples in the first column, the genotypes hierarchy file was likely used when your PCR primers were generated. 
 
