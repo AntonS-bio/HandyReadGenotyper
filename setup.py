@@ -53,7 +53,7 @@ setup(name='AmpliconTyper',
           'scripts/map.py',
           'scripts/model_manager.py',
           'scripts/read_classifier.py',
-          'scripts/reporting_classes.py'
+          'scripts/reporting_classes.py',
           'scripts/train.py'
       ],
       cmdclass={'install': AmpliconTyperInstall}

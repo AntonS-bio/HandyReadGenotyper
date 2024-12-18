@@ -7,7 +7,7 @@ package:
 
 source:
   url: https://github.com/AntonS-bio/AmpliconTyper/archive/{{ version }}.tar.gz
-  sha256: c78f26616d7355f323bf9b6f416c13b276d9ff71816bdc5bc02d1f2d6f95e0a0
+  sha256: 3ff4b9218c801531ad43b31a78ec5aef08e02c3bfc904f15857d9833fa6b60f4
 
 build:
   noarch: python
@@ -17,6 +17,8 @@ build:
   number: 0
 
 requirements:
+  build:
+    - setuptools
   host:
     - pip
     - python >=3.10

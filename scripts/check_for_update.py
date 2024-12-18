@@ -29,7 +29,7 @@ class UpdateChecker:
 
     def get_latest_model_version(self):
         try:
-            url="https://api.github.com/repos/AntonS-bio/HandyReadGenotyper/contents/models/"
+            url="https://api.github.com/repos/AntonS-bio/AmpliconTyper/contents/models/"
             with requests.get(url, timeout=10) as response:
                 if "status" in response.json() and response.json()["status"]=="404":
                     self._result+=f'The specified URL {url} is not available. Check with developer.'+"\n"
@@ -41,7 +41,7 @@ class UpdateChecker:
                             server_model_versions.append(self.get_model_num_from_filename(element["name"]))
                     if max(server_model_versions)> self._model_current_version:
                         self._result+=f'Newer model version is available: {self._model_prefix}_v{max(server_model_versions)}.pkl'+"\n"
-                        self._result+="You can download it here: https://github.com/AntonS-bio/HandyReadGenotyper/tree/main/models"+"\n"
+                        self._result+="You can download it here: https://github.com/AntonS-bio/AmpliconTyper/tree/main/models"+"\n"
                         return True
                     else:
                         self._result+=f'The model file {self._model_prefix}_v{self._model_current_version} is up to date'+"\n"
@@ -59,7 +59,7 @@ class UpdateChecker:
 
     def check_github_release(self) -> bool:
         try:
-            url='https://api.github.com/repos/AntonS-bio/HandyReadGenotyper/releases/latest'
+            url='https://api.github.com/repos/AntonS-bio/AmpliconTyper/releases/latest'
             with requests.get(url, timeout=10) as response:
                 if "status" in response.json() and response.json()["status"]=="404":
                     self._result+=f'The specified URL {url} is not available. Check with developer.'+"\n"
@@ -80,24 +80,24 @@ class UpdateChecker:
 
     def get_installed_tool_version(self) -> bool:
         try:
-            shell_stdout = subprocess.run(f'conda list | grep handyreadgenotyper', shell=True, executable="/bin/bash", stdout=subprocess.PIPE,  stderr=subprocess.PIPE)
+            shell_stdout = subprocess.run(f'conda list | grep amplicontyper', shell=True, executable="/bin/bash", stdout=subprocess.PIPE,  stderr=subprocess.PIPE)
             if shell_stdout.returncode!=0:
-                self._result+="Error using conda to check the currently installed version of HandyReadGenotyper"+"\n"
+                self._result+="Error using conda to check the currently installed version of AmpliconTyper"+"\n"
             shell_stdout = shell_stdout.stdout.decode()
             lines=shell_stdout.strip().split("\n")
             if len(lines)==1:
                 values=[f for f in lines[0].split(" ") if f]
-                if values[0]=="handyreadgenotyper" and len(values)>1:
+                if values[0]=="amplicontyper" and len(values)>1:
                     self._tool_current_version=values[1]
                     if self._tool_current_version!=self._running_version:
-                        self._result+=f'The running HandyReadGenotyper version is {self._running_version}'
+                        self._result+=f'The running AmpliconTyper version is {self._running_version}'
                         self._result+=f' does not match the Conda version {self._tool_current_version}'+"\n"
                         self._result+=f'This is not a problem if you are running the tool using "python classify.py..."'+"\n"
                     return True
                 else:
-                    self._result+=f'Could not deteremine determine the HandyReadGenotyper version using conda: {lines[0]}'+"\n"
+                    self._result+=f'Could not deteremine determine the AmpliconTyper version using conda: {lines[0]}'+"\n"
             else:
-                self._result+='Could not deteremine determine the HandyReadGenotyper version using conda: {lines}'+"\n"
+                self._result+='Could not deteremine determine the AmpliconTyper version using conda: {lines}'+"\n"
         except Exception as e:
             self._result+="Couldn't get current version of installed tool."+"\n"
             self._result+=str(e)
@@ -105,25 +105,25 @@ class UpdateChecker:
 
     def check_bioconda_release(self) -> bool:
         try:
-            result = subprocess.run(f'conda search bioconda::handyreadgenotyper', shell=True, executable="/bin/bash", stdout=subprocess.PIPE,  stderr=subprocess.PIPE)
+            result = subprocess.run(f'conda search bioconda::amplicontyper', shell=True, executable="/bin/bash", stdout=subprocess.PIPE,  stderr=subprocess.PIPE)
             if result.returncode != 0:
-                self._result+="Couldn't not check for new version of HandyReadGenotyper"+"\n"
+                self._result+="Couldn't not check for new version of AmpliconTyper"+"\n"
             else:
                 result = result.stdout.decode().strip().split("\n")
                 for line in result:
                     values=[f for f in line.split(" ") if f]
-                    if values[0]=="handyreadgenotyper":
+                    if values[0]=="amplicontyper":
                         if len(values)>=2 and values[1]==self._tool_latest_github:
                             if self._tool_current_version==self._tool_latest_github:
-                                self._result+="HandyReadGenotyper is up to date"+"\n"
+                                self._result+="AmpliconTyper is up to date"+"\n"
                             else:
-                                self._result+=f'Newer version ({self._tool_latest_github}) of the HandyReadGenotyper is available'+"\n"
-                                self._result+=f'Please update using "conda install bioconda::handyreadgenotyper={self._tool_latest_github}"'+"\n"
+                                self._result+=f'Newer version ({self._tool_latest_github}) of the AmpliconTyper is available'+"\n"
+                                self._result+=f'Please update using "conda install bioconda::amplicontyper={self._tool_latest_github}"'+"\n"
                             return True
-                self._result+="Could not check for handyreadgentopyer on Conda. It's probably not a problem"+"\n"
+                self._result+="Could not check for amplicontyper on Conda. It's probably not a problem"+"\n"
                 return False
         except Exception as e:
-            self._result+="Could not check for handyreadgentopyer on Conda. It's probably not a problem"+"\n"
+            self._result+="Could not check for amplicontyper on Conda. It's probably not a problem"+"\n"
             self._result+=str(e)
         return False
 
