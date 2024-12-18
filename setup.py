@@ -4,7 +4,7 @@ from setuptools.command.install import install
 import os
 import sys
 
-__version__ = '0.1.25'
+__version__ = '0.1.26'
 
 def readme():
     with open('README.md') as f:
@@ -15,7 +15,7 @@ def check_dir_write_permission(directory):
         sys.exit('Error: no write permission for ' + directory + '  ' +
                  'Perhaps you need to use sudo?')
 
-class HandyReadGenotyperInstall(install):
+class AmpliconTyperInstall(install):
 
     def run(self):
         check_dir_write_permission(self.install_lib)
@@ -23,9 +23,9 @@ class HandyReadGenotyperInstall(install):
 
 
 
-setup(name='HandyReadGenotyper',
+setup(name='AmpliconTyper',
       version=__version__,
-      description='HandyReadGenotyper',
+      description='AmpliconTyper',
       long_description=readme(),
       python_requires='>=3.10',
       classifiers=['Development Status :: Beta',
@@ -34,25 +34,27 @@ setup(name='HandyReadGenotyper',
                    'Topic :: Scientific/Engineering :: Bio-Informatics',
                    'Intended Audience :: Science/Research'],
       keywords='PCR amplicon primers',
-      url='https://github.com/AntonS-bio/HandyReadGenotyper.git',
+      url='https://github.com/AntonS-bio/AmpliconTyper.git',
       author='Anton Spadar',
       author_email='',
       packages=['scripts'],
       include_package_data=True,
       entry_points={'console_scripts': ['classify = classify:main', 'train = train:main', 'genotyper_utilities = genotyper_utilities:main']},
       scripts=[
+          'scripts/check_for_update.py',
+          'scripts/classifier_report.py',
           'scripts/classify.py',
           'scripts/data_classes.py',
-          'scripts/genotyper_data_classes.py',
+          'scripts/genotyper_utilities.py',
+          'scripts/hierarchy_utils.py',
+          'scripts/html_head.txt',
           'scripts/input_processing.py',
           'scripts/inputs_validation.py',
+          'scripts/map.py',
           'scripts/model_manager.py',
           'scripts/read_classifier.py',
-          'scripts/train.py',
-          'scripts/classifier_report.py',
-          'scripts/map.py',
-          'scripts/genotyper_utilities.py',
-          'scripts/html_head.txt'
+          'scripts/reporting_classes.py'
+          'scripts/train.py'
       ],
-      cmdclass={'install': HandyReadGenotyperInstall}
+      cmdclass={'install': AmpliconTyperInstall}
 )

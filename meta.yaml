@@ -1,19 +1,19 @@
-{% set name = "HandyReadGenotyper" %}
-{% set version = "0.1.25" %}
+{% set name = "AmpliconTyper" %}
+{% set version = "0.1.26" %}
 
 package:
   name: {{ name|lower }}
   version: {{ version }}
 
 source:
-  url: https://github.com/AntonS-bio/HandyReadGenotyper/archive/{{ version }}.tar.gz
-  sha256: 11970c9bff8b4b7569e7a124030ccc9a0c53a70bb55fe49fcda735857781a731
+  url: https://github.com/AntonS-bio/AmpliconTyper/archive/{{ version }}.tar.gz
+  sha256: c78f26616d7355f323bf9b6f416c13b276d9ff71816bdc5bc02d1f2d6f95e0a0
 
 build:
   noarch: python
   script: {{ PYTHON }} -m pip install . -vv --no-deps --no-build-isolation
   run_exports:
-      - {{ pin_subpackage('handyreadgenotyper', max_pin="x.x") }}  
+      - {{ pin_subpackage('amplicontyper', max_pin="x.x") }}  
   number: 0
 
 requirements:
@@ -41,11 +41,11 @@ test:
 about:
   license: GPL-3.0-only
   license_file: LICENSE
-  home: https://github.com/AntonS-bio/HandyReadGenotyper
+  home: https://github.com/AntonS-bio/AmpliconTyper
   summary: 'Tool for training model and classifying reads from environmental ONT amplicon sequencing.'
   description: |
     Tool for training model and classifying reads from environmental ONT amplicon sequencing. 
-  doc_source_url: https://github.com/AntonS-bio/HandyAmpliconTool/blob/main/README.md
+  doc_source_url: https://github.com/AntonS-bio/AmpliconTyper/blob/main/README.md
 
 
 extra:
