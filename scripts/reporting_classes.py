@@ -44,8 +44,13 @@ class ReportingUtilities:
         models_list=sorted(set([(f.model_timestamp) for f in results]))
         return models_list[-1].strftime("%d/%b/%y")
 
-    def generate_header_row(self, header_values: List[str]) -> str:
-        table_header=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER+"\n"
+    def generate_header_row(self, header_values: List[str], tooltip_values: List[str]="") -> str:
+        if len(tooltip_values)==0:
+            table_header=OPENER_BOLD+MIDDLE.join(header_values)+CLOSER+"\n"
+        else:
+            #tooltops are present, so add them to header cells
+            values=[value+"  "+f'<img class="help-icon" title="{hint}">' for value, hint in zip(header_values, tooltip_values)]
+            table_header=OPENER_BOLD+MIDDLE.join(values)+CLOSER+"\n"
         return table_header
 
 class AlleleInfo:
@@ -161,7 +166,6 @@ class AmpliconReportValues:
     @property
     def is_amr(self) -> bool:
         return True in [f.is_amr for f in self.all_defined_snps if f.contig_id==self.name]
-
 
     def calculate_all_alleles(self) -> List[AlleleInfo]:
         """Returns AlleleInfo for each position of the amplicon sequence
@@ -299,12 +303,13 @@ class AmpliconReportValues:
 
 class ReportingGenotype:
     MISSING_VALUE="MISSING_VALUE"
-
-    def __init__(self, hierarchy: Dict[str, Dict]):
+    DEFAULT_HIGH_LEVEL_GT="Any"
+    def __init__(self, hierarchy: Dict[str, Dict]=None):
         self._reporting_gt=""
         self._hierarchy=hierarchy
         self._levels: Dict[str, int]={} #key = genotype, value = depth of nesting
-        self.generate_levels()
+        if not hierarchy is None:
+            self.generate_levels()
         
     def generate_levels(self):
         #the hierarchy data is nested dictionary {"1": {"type": "genotype", children: { "2": "type": "genotype", "children"     }    } }
@@ -348,7 +353,7 @@ class ReportingGenotype:
                     present_gts.loc[ (allele.amplicon_name, allele.pos), possible_gts] = 0
         possible_gts=list(present_gts.columns[present_gts.product()==1])
         if len(possible_gts)==len(present_gts.columns):
-            return "Any"
+            return ReportingGenotype.DEFAULT_HIGH_LEVEL_GT
         else:
             return ", ".join(possible_gts)
 
@@ -356,8 +361,8 @@ class SampleReportValues:
     
     def __init__(self, sample_name:str, amplicon_results: List[ClassificationResult], model_data: ModelsData):
         self._amplicon_results: Dict[str, AmpliconReportValues] = {}
-        self._hierarchy=model_data.metadata.get("hierarchy",{})
-        self._reporting_genotype=ReportingGenotype( self._hierarchy )
+        self._model_data=model_data
+        self._reporting_genotype=ReportingGenotype( model_data.metadata.get("hierarchy",{}) )
         self._utilities=ReportingUtilities()
         for result in amplicon_results:
             new_report_amplicon=AmpliconReportValues(result)
@@ -365,7 +370,10 @@ class SampleReportValues:
             self._amplicon_results[result.amplicon.name]=new_report_amplicon
 
         all_alleles=[allele for amplicon, result in self._amplicon_results.items() for allele in result.alleles]
-        self._possible_highlevel_gts=self._reporting_genotype.possible_high_level_gts( alleles=all_alleles, genotypes_matrix=model_data.metadata["high_level_genotypes"] )
+        if "high_level_genotypes" in model_data.metadata:
+            self._possible_highlevel_gts=self._reporting_genotype.possible_high_level_gts( alleles=all_alleles, genotypes_matrix=model_data.metadata["high_level_genotypes"] )
+        else:
+            self._possible_highlevel_gts=None
 
         self._name=sample_name
         self._sample_descrition="No description"
@@ -384,6 +392,11 @@ class SampleReportValues:
         over_five=sum([value for key, value in unknown_snps.items() if key>=5])
         diagram=diagram+str(over_five)
         return diagram
+
+    @property
+    def model_data(self) -> ModelsData:
+        '''Returns and object containing Classifier models and metadata for the models'''
+        return self._model_data
 
     @property
     def display_order(self):
@@ -409,13 +422,13 @@ class SampleReportValues:
         for the bacteria where some genotypes are defined by multiple SNP
         '''
         if not self.target_positive:
-            return ""
+            return "-"
         return self._possible_highlevel_gts
 
     @property
     def agg_gts(self) -> str:
         if not self.target_positive:
-            return ""
+            return "-"
         gts: List[AlleleInfo]=[]
         for amplicon_name, value in self._amplicon_results.items():
             gts+=value.amplicon_gts_list
@@ -424,7 +437,7 @@ class SampleReportValues:
     @property
     def agg_amrs(self) -> str:
         if not self.target_positive:
-            return ""
+            return "-"
         amrs=""
         for amplicon_name, value in self._amplicon_results.items():
             if amrs=="":
@@ -481,27 +494,30 @@ class SampleReportValues:
 
 class SummaryTable:
     utilities=ReportingUtilities()
-    def __init__(self, model_date: str, model_file: str, include_optional_columns=False ):
+    def __init__(self, model_date: str, model_file: str, include_optional_columns="False" ):
         self._model_file=  basename(model_file).replace(".pkl","")
         self._model_date=model_date
         self._include_optional_columns = include_optional_columns
+        self._show_len_ratio_warning=False
         
     OPTIONAL_COLUMN=["Possible High Level Genotypes"]
     FIRST_LINE='<div class=header_line><a name="Summary">Summary of results</div>\n'
     HEADER_VALUES=["Sample", "Amplicons by # of dominant unknown SNPs", "Possible High Level Genotypes", "Implied Genotypes","Implied AMR",
                    "Sequencing Reads","Mapped, correct length", "Mapped, but too short/long"]#," Highest read count","Lowest read count"]
-    HEADER_TOOLTIP_TEXT=["Sample Name", #Sample
-                         "Numbers indicate number of amplicons, number's position-1 indicates how many unknown SNPs these amplicons have. \n\
-                         e.g. 2,0,4,0,0 means there are 2 amplicons without unknown SNPs (position is 1, so 1-1=0), and \n\
-                         4 amplicons with 2 unknown SNPs each (position is 3-1=2)", #Amplicon/SNP diagram
-                         "Relevant for some organisms (e.g. S. Typhi) where some genotypes cannot be determined with single SNP.\n\
-                         Shows all possible high level genotypes (in S. Typhi these are 1, 2, 3, 4) given detected amplicons.", #HL genotypes
-                         "Shows only the most specific genotype based on detected amplicons. Will not show multiple genotypes if sample consists of more than one.", #Genotype
-                         "Blank field means AMR amplicons not detected, amplicon name means gene detected, but doesn't have AMR mutations, \
-                            mutation description means this mutation was detected in respective amplicon", #Implied AMR
-                            "Total reads in FASTQ files. If classification is done from BAM files this field will be blank", #Total reads
-                            "Reads which mapped to some amplicon and have length that meets -l and -s parameters", #Corrent lengths
-                            "Reads which mapped to some amplicons, but have length that does not meet -l and -s parameters."] #Too long
+    HEADER_TOOLTIP_TEXT=["Sample name, you can make it more informative by adding sample description using options -c and -d.", #Sample
+                         "Numbers means number of amplicons, number's position-1 indicates how many unknown SNPs these amplicons have.&#10\
+E.g. 2,0,4,0,0 means there are 2 amplicons without unknown SNPs (position is 1, so 1-1=0), and \
+4 amplicons with 2 unknown SNPs each (position is 3-1=2).&#10\
+Only examines the amplicons that should be always present i.e. excludes plasmids, recombinations, etc.", #Amplicon/SNP diagram
+                         "Relevant for some organisms (e.g. S. Typhi) where some genotypes cannot be determined with single SNP.&#10\
+Shows high level genotypes (in S. Typhi these are 0, 1, 2, 3, 4) that are possible given detected amplicons.&#10\
+Uses all alleles that are supported by >"+str(POSITIVE_CASES_THRESHOLD)+"reads.&#10'Any' means detected amplicons provide no information on the high level genotypes.", #HL genotypes
+                         "Shows only the most specific genotype based on detected amplicons. Will not show multiple genotypes even if sample consists of more than one.", #Genotype
+                         "Blank field means AMR amplicons not detected,&#10Amplicon name means gene detected, but doesn't have AMR mutations,&#10\
+Mutation description means this mutation was detected in respective amplicon", #Implied AMR
+                          "Total reads in FASTQ files. If classification is done from BAM files this field will be blank.", #Total reads
+                          "Reads which mapped to some amplicon and have length that meets -l and -s parameters.", #Corrent lengths
+                          "Reads which mapped to some amplicons, but have length that does not meet -l and -s parameters.&#10See values used just below 'Summary of results' table"] #Too long
 
     def get_main_header(self) -> str:
         main_header=SummaryTable.FIRST_LINE
@@ -513,17 +529,15 @@ class SummaryTable:
         main_header+=self.utilities.insert_paragraph(1)
         main_header+="<table>\n"
         main_header+="\t<tbody>\n"
-        main_header+=self.utilities.generate_header_row(SummaryTable.HEADER_VALUES)
+        main_header+=self.utilities.generate_header_row(SummaryTable.HEADER_VALUES, SummaryTable.HEADER_TOOLTIP_TEXT)
         return main_header
     
     def get_main_tail(self, length_parameters: Dict[str, int]) -> str:
         main_tail="\t</tbody>\n"
         main_tail+="</table>\n"
         #self.output_file.write(f'<p>* Defined as at least {self._positive_amplicons_threshold*100}% of amplicons that <a href="#ModelSignatures">are part of core genome</a> having at least {POSITIVE_CASES_THRESHOLD} target organism reads</p>')
-        main_tail+=f'<p>(?) Prediction is based on amplicon with fewer than {POSITIVE_CASES_THRESHOLD} reads</p>'
-        main_tail+="<p><del>AMR Amplicon</del> means no reads were found for this AMR amplicon</p>"
-        add_read_length_flag=True #!!!!! CHANGE LATER
-        if add_read_length_flag:
+        main_tail+=f'<p>"-" fewer than {POSITIVE_CASES_MIN_AMPLICONS} amplicons with {POSITIVE_CASES_THRESHOLD} target organism reads and fewer than {MAX_ALLOWED_SNPS+1} SNPs</p>'
+        if self._show_len_ratio_warning:
             main_tail+=f'<p>^ The number of reads either longer or shorter than amplicon is >{str(CORRECT_TO_WRONG_LEN_RATIO)}x higher than reads that match amplicon length. If this is unexpected, consider using options "-s" or "-l". </p>'
         main_tail+=f'<p>Classifier allowed soft clip (-s) of {length_parameters["-s"]}nt and 10nt length difference (-l) between reference and mapped read.'
         main_tail+='<p>Report generated on '+datetime.now().strftime("%d/%b/%y at %H:%M")+'. <a href="#ModelSignatures">See models list</a></p>'
@@ -535,6 +549,9 @@ class SummaryTable:
             lengths_ratio = CORRECT_TO_WRONG_LEN_RATIO+1 if sample.mapped_count>100 else 0
         else:
             lengths_ratio=sample.wrong_length_count/(sample.mapped_count-sample.wrong_length_count)
+        if not self._show_len_ratio_warning and lengths_ratio>CORRECT_TO_WRONG_LEN_RATIO:
+            self._show_len_ratio_warning=True #will display information that 3.0x read are rejected
+            #and suggest the adjustment to -s and -l parameters to fix this.
         wrong_len_suffix="^" if lengths_ratio>CORRECT_TO_WRONG_LEN_RATIO else ""
         if self._include_optional_columns:
             values=[sample_name_href, sample.snp_frequency_diagram(), sample.possible_highlevel_gts, sample.agg_gts, sample.agg_amrs, sample.sequencing_read_count,
@@ -553,8 +570,30 @@ class SummaryTable:
         return table_line+"\n"
 
 class SampleTable:
+
+    HEADER_VALUES=["Amplicon","Tot. Reads", "Rejected on Length", "% Target Org.",
+                        "# Target Org.","All known SNPs", "Dominant known SNPs",
+                        "Dominant unknown SNPs", "Implied Genotypes", "Implied AMR"]
+    HEADER_TOOLTIP_TEXT=["Sample name, you can make it more informative by adding sample description using options -c and -d.",
+                         "Total number of reads that mapped to the amplicon regadless of length (i.e. -s and -l parameters)",
+                         "Number of mapped reads that were not assesed by classifier due to not meeting -s and -l parameters.",
+                         "Percentage of mapped reads that were classified as target organism and that satisfied -s and -l length parameteres",
+                         "Number of reads that were classified as target organism and that satisfied -s and -l length parameteres",
+                         f'Number of SNPs detected that match known SNPs defined in classifier model file you used.&#10\
+Includes all alleles different from references that occur in >{POSITIVE_CASES_THRESHOLD} reads and no less than {LOW_READ_WARNING_PERCENT}% of all reads',
+                         f'Shows those detected SNPs that match known SNPs in classifier model file you used and also are the most common nucleotide that position.&#10\
+E.g. if at position 254 the reference is C, but in reads the most common nucleotide is T this would count in this column.&#10\
+If T occcured, but the most common was C, this would not count in this column. ',
+                          f'Shows those detected SNPs that DO NOT match known SNPs in classifier model file you used and also are the most common nucleotide that position.&#10\
+E.g. if at position 315 the reference is A, but in reads the most common nucleotide is G this would count in this column.&#10\
+If G occcured, but the most common was A, this would not count in this column. If position has three occuring nucleotides, only the most common is examined.',
+                         "Genotypes implied by detected SNPs (but not reference alleles). Number in brackets indicates what % of target organism reads supports this genotype.&#10\
+For high level genotypes, a range of possible gnotypes (e.g. 0-2 or 3-4) is reported.",
+                         "AMR genotype implied by detected SNPs (but not reference alleles). Number in brackets indicates what % of target organism reads supports this genotype."]
+                         
     def __init__(self) -> None:
         self._utilities=ReportingUtilities()
+        self._reporting_genotype=ReportingGenotype()
 
     def get_table_header(self, sample: SampleReportValues) -> str:
         text=self._utilities.insert_paragraph(2)
@@ -562,19 +601,21 @@ class SampleTable:
         text+=self._utilities.insert_paragraph(1)
         text+="<table>\n"
         text+="\t<tbody>\n"
-        text+=self._utilities.generate_header_row(["Amplicon","Tot. Reads", "% Target Org.",
-                                                   "# Target Org.","All known SNPs", "Dominant known SNPs",
-                                                    "Dominant unknown SNPs", "Implied Genotypes", "Implied AMR"])
+        text+=self._utilities.generate_header_row(SampleTable.HEADER_VALUES, SampleTable.HEADER_TOOLTIP_TEXT)
         text+="\n"
 
         return text
 
     def get_table_row(self, amplicon:AmpliconReportValues, sample: SampleReportValues, alt_style=False) -> str:
         first_cell='<a href="#'+sample.name+'_'+amplicon.name+'_consensus"/>'+amplicon.name
+        first_cell+="^" if amplicon.model.not_trained else ""
         if amplicon.target_org_reads<POSITIVE_CASES_THRESHOLD:
-            values=[first_cell]+["*"]+["-"]*7
+            values=[first_cell]+["*"]+["-"]*8
         else:
-            values=[first_cell, amplicon.mapped_count, amplicon.target_org_share,
+            # high_level_gts=self._reporting_genotype.possible_high_level_gts( amplicon.alleles, sample.model_data.metadata["high_level_genotypes"] )
+            # if high_level_gts==ReportingGenotype.DEFAULT_HIGH_LEVEL_GT:
+            #     high_level_gts==""
+            values=[first_cell, amplicon.mapped_count, amplicon.wrong_length_count, amplicon.target_org_share,
                         amplicon.target_org_reads, len(amplicon.all_known_snps), len(amplicon.dominant_known_snps),
                         len(amplicon.dominant_unknown_snps), amplicon.amplicon_gts_str_format, amplicon.amplicon_amrs]
             
@@ -590,6 +631,8 @@ class SampleTable:
         text="\t<tbody>\n"
         text+="<table>\n"
         text+=f'* Amplicon has fewer than {POSITIVE_CASES_THRESHOLD+1} target organism reads<br>'
+        text+=f'<p>(?) Prediction is based on amplicon with fewer than {POSITIVE_CASES_THRESHOLD} reads</p>'
+        #text+="<p><del>AMR Amplicon</del> means no reads were found for this AMR amplicon</p>"
         text+='^ Using model that was trained without negative cases - results are likely to be less reliable'
         text+=self._utilities.insert_paragraph(5)
 
@@ -603,13 +646,20 @@ class ConsensusSequencesTable:
 
     FIRST_LINE='<div class=header_line>Consensus sequences</div>\n'
     HEADER_VALUES=["Sample", "Amplicon", "# of target reads", "Consensus <br/> Mismatches <br/> vs Reference", "Consensus sequence"]
+    HEADER_TOOLTIP_TEXT=["Sample name, you can make it more informative by adding sample description using options -c and -d.",
+                         "Amplicon name",
+                         "Number of reads classified as target organism",
+                         "List of position where most common nucleotide does not match the reference sequence. If allele has known consequence this is also listed.&#10\
+This list usually doesn't match the one in Sample's table because this column only reports cases where most common nucleotide doesn't match reference.",
+                         "Amplicon consensus sequence. If the most common nucleotide is deletion this is reported as '-'. Insertions are not currently supported."]
+
 
     def get_main_header(self) -> str:
         main_header=ConsensusSequencesTable.FIRST_LINE
         main_header+=self.utilities.insert_paragraph(1)
         main_header+="<table>\n"
         main_header+="\t<tbody>\n"
-        main_header+=self.utilities.generate_header_row(ConsensusSequencesTable.HEADER_VALUES)
+        main_header+=self.utilities.generate_header_row(ConsensusSequencesTable.HEADER_VALUES, ConsensusSequencesTable.HEADER_TOOLTIP_TEXT)
         return main_header
     
     def get_table_row(self, amplicon: AmpliconReportValues, sample: SampleReportValues, alt_style=False) -> str:
@@ -634,14 +684,18 @@ class DelimitedTable:
         pass
 
     def get_main_header(self):
-        values=["Barcode", "amplicon", "amplicon_description", "mapped_reads", "target_reads_share",
-                 "target_reads", "genotypes", "amr", "total_snps", "unknown_snps", "snps_list", "consensus"]
+        values=["Barcode", "Amplicon", "Amplicon Description", "Tot. Reads", "Rejected on Length", "% Target Org.",
+                 "# Target Org.", "Possible High Level Genotypes", "Implied Genotypes",
+                   "Implied AMR", "Dominant known SNPs", "Dominant unknown SNPs",
+                     "Consensus Mismatches vs Reference", "Consensus"]
         return "\t".join(values)+"\n"
     
     def get_table_row(self, amplicon:AmpliconReportValues, sample: SampleReportValues):
-        values=[sample.name, sample.sample_description, amplicon.name, amplicon.mapped_count,
-            amplicon.target_org_share, amplicon.target_org_reads, amplicon.amplicon_gts_str_format,
-            amplicon.amplicon_amrs, len(amplicon.dominant_unknown_snps), amplicon.consensus]
+        values=[sample.name, amplicon.name, sample.sample_description, amplicon.mapped_count,
+                amplicon.wrong_length_count, amplicon.target_org_share, amplicon.target_org_reads,
+                sample.possible_highlevel_gts, amplicon.amplicon_gts_str_format, amplicon.amplicon_amrs,
+                len(amplicon.dominant_known_snps), len(amplicon.dominant_unknown_snps),
+                amplicon.consensus_snp_implications,  amplicon.consensus]
         
         table_line = "\t".join([str(f) for f in values])
             

@@ -3,6 +3,7 @@ from typing import List, Dict
 from read_classifier import ClassificationResult, Classifier, ModelsData
 from os.path import expanduser
 from map import MappingResult
+from tqdm import tqdm
 from reporting_classes import SummaryTable, ReportingUtilities, SampleReportValues, SampleTable, ConsensusSequencesTable, DelimitedTable, ReportingGenotype
 
 OPENER='<tr><td>'
@@ -55,19 +56,14 @@ class ClasssifierReport:
 
     def create_report(self, results: List[ClassificationResult]):
         
-        # test_class = ReportingGenotype(self.genotypes)
-        # test_class.generate_levels()
-
         samples=set([f.sample for f in results])
         sample_report_values: Dict[str, SampleReportValues ]={}
-        for sample in samples:
+        for sample in tqdm(samples):
             sample_report_values[sample]=SampleReportValues(sample, [ f for f in results if f.sample==sample ], self.models_data )
             if sample_report_values[sample].name in self.sample_labels:
                 sample_report_values[sample].sample_description=self.sample_labels[sample_report_values[sample].name]
             if sample_report_values[sample].name in self.mapping_results:
                 sample_report_values[sample].sequencing_read_count=self.mapping_results[sample_report_values[sample].name]
-        # self.results: List[ClassificationResult] = results
-        # self.samples: List[str]=sorted(set([f.sample for f in self.results]))
 
         self.output_file.write("<html>\n")
         self.output_file.write("<body>\n")

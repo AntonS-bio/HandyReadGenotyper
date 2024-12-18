@@ -17,6 +17,7 @@ Odd_*
 old*
 temp*
 map_fastq.sh
+bams_matrix.pkl
 murium.tsv
 DELETE*
 manuscript_data/

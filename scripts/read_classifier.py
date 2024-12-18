@@ -186,9 +186,11 @@ class ReadsMatrix:
                         print(f'Bam file {self.bam_file} has an empty read aligning to {target_amplicon.name} this should not happen')
                         continue
                     #allows for soft clippping on both sides (first line), reads shorter than target (second line), reads longer than target (third line)
-                    if ReadsMatrix.train_mode and (read.get_aligned_pairs(matches_only=True)[-1][0] < target_end - 10 \
-                                                   or read.get_aligned_pairs(matches_only=True)[0][0] > 10) :
-                        #read too short
+                    if ReadsMatrix.train_mode and not (read.query_alignment_start < ReadsMatrix.permitted_read_soft_clip \
+                                                   and (read.query_length-read.query_alignment_end) < ReadsMatrix.permitted_read_soft_clip \
+                                                   and (read.query_alignment_end - read.query_alignment_start) < (target_end - target_start) + ReadsMatrix.permitted_mapped_sequence_len_mismatch \
+                                                   and (read.query_alignment_end - read.query_alignment_start) > (target_end - target_start) - ReadsMatrix.permitted_mapped_sequence_len_mismatch):
+                        #read too short/too long
                         self._wrong_len_reads[target_amplicon.name]+=1
                         continue
                     if not ReadsMatrix.train_mode and full_length_only and not (\

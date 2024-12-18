@@ -90,13 +90,13 @@ def get_arguments():
     parser.add_argument('-o','--output_file', type=str,
                         help='File to store classification results', required=True)
     parser.add_argument('--target_reads_bams', type=str,
-                        help='Directory to which to write reads classified as target organism', required=False)
+                        help='Directory to which to write reads classified as target organism. Using this will substantially increase run time.', required=False)
     parser.add_argument('-s', '--max_soft_clip', type=int,
                         help='Specifies maximum permitted soft-clip (length of read before first and last mapped bases) of mapped read', required=False, default=25)
     parser.add_argument('-l', '--max_read_len_diff', type=int,
                         help='Specifies maximum nucleotide difference between mapped portion of read and target amplicon', required=False, default=10)
     parser.add_argument('--organism_presence_cutoff', type=float,
-                        help='Sample is reported as having target organism if at least this percentage  of non-transient amplicons have >10 reads. Values 0-100.', required=False, default=20.0)
+                        help='Currently not in use', required=False, default=20.0)
    
     parser.add_argument('-v', '--version', action='version', version='%(prog)s '+VERSION)
 
@@ -121,7 +121,7 @@ async def classify(temp_dir, args):
 
     #check minimap2 is installed
     if which("minimap2") is None:
-        print(f'Missing minimap2 program. It is available via Bioconda.')
+        print(f'Missing minimap2 program. It is available via Bioconda. Exiting.')
         return
 
     cpu_to_use=int(args.cpus)
@@ -129,7 +129,9 @@ async def classify(temp_dir, args):
     input_processing=InputProcessing()
 
     model_file = args.model
-
+    if not exists(model_file):
+        print(f'Could not located model file {model_file}. Exiting.')
+        return
 
     fasta_file = join(temp_dir,"reference.fasta")
     generate_ref_fasta(model_file, fasta_file)
@@ -210,8 +212,8 @@ async def main():
     try:
         input_arguments=get_arguments()
         checker=UpdateChecker(input_arguments.model)
-        await asyncio.gather(classify(temp_dir, input_arguments))
-        #await asyncio.gather(checker.get_result(VERSION), classify(temp_dir, input_arguments))
+        #await asyncio.gather(classify(temp_dir, input_arguments))
+        await asyncio.gather(checker.get_result(VERSION), classify(temp_dir, input_arguments))
         print("\n"+checker.result)
 
     except Exception as e:
