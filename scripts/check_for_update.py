@@ -74,8 +74,7 @@ class UpdateChecker:
         except requests.exceptions.InvalidURL:
             self._result+=f'The specified URL {url} is not available. Check with developer.'+"\n"
         except Exception as e:
-            self._result+="Couldn't connect to GitHub."+"\n"
-            self._result+=str(e)
+            self._result+="Couldn't connect to GitHub. This may be due to running AmpliconTyper a lot in short time."+"\n"
         return False
 
     def get_installed_tool_version(self) -> bool:
@@ -83,6 +82,7 @@ class UpdateChecker:
             shell_stdout = subprocess.run(f'conda list | grep amplicontyper', shell=True, executable="/bin/bash", stdout=subprocess.PIPE,  stderr=subprocess.PIPE)
             if shell_stdout.returncode!=0:
                 self._result+="Error using conda to check the currently installed version of AmpliconTyper"+"\n"
+                return False
             shell_stdout = shell_stdout.stdout.decode()
             lines=shell_stdout.strip().split("\n")
             if len(lines)==1:

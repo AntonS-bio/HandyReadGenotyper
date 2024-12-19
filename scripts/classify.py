@@ -18,7 +18,7 @@ warnings.filterwarnings("ignore")
 from map import ReadMapper
 import pysam as ps
 
-VERSION="0.1.26"
+VERSION="0.1.28"
 
 def generate_amplicons(model_file: str, fasta_file:str) -> List[Amplicon]:
     target_regions: List[Amplicon] = []
@@ -154,6 +154,7 @@ async def classify(temp_dir, args):
     #Map the raw reads or collect bams to classify
     bams_dir=expanduser(args.bams)
     if not args.fastqs is None:
+        args.fastqs=expanduser(args.fastqs)
         if not input_processing.file_exists(args.fastqs):
             return
         print("Starting read mapping to reference")
@@ -207,12 +208,11 @@ async def classify(temp_dir, args):
     rmtree(temp_dir)
     print("Done")
     
-async def main():
+async def run():
     temp_dir=expanduser( join("./",str(uuid.uuid4())) )
     try:
         input_arguments=get_arguments()
         checker=UpdateChecker(input_arguments.model)
-        #await asyncio.gather(classify(temp_dir, input_arguments))
         await asyncio.gather(checker.get_result(VERSION), classify(temp_dir, input_arguments))
         print("\n"+checker.result)
 
@@ -221,7 +221,9 @@ async def main():
     if exists(temp_dir): #clean up
         rmtree(temp_dir)
 
-if __name__=="__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+def main():
+    pass
 
+if __name__=="classify" or __name__=="__main__":
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(run())
